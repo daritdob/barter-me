@@ -1,0 +1,38 @@
+package com.example.data.model
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "app_notifications")
+data class NotificationEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val message: String,
+    val timestamp: Long,
+    val isRead: Boolean = false
+)
+
+@Entity(tableName = "wallet_transactions")
+data class WalletTransactionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String,
+    val amount: Int,
+    val type: String, // "earned" or "spent"
+    val timestamp: Long
+)
+
+@Entity(tableName = "trade_states")
+data class TradeStateEntity(
+    @PrimaryKey val listingId: Int,
+    val state: String // NEGOTIATING, AGREEMENT_SIGNED, IN_PROGRESS, UNDER_REVIEW, COMPLETED
+)
+
+@Entity(tableName = "user_preferences")
+data class UserPreferencesEntity(
+    @PrimaryKey val id: Int = 1,
+    val isDarkMode: Boolean = true,
+    val maxDistanceFilter: Float? = null,
+    val searchQuery: String = "",
+    val selectedCategory: String? = null,
+    val walletBalance: Int = 4200
+)

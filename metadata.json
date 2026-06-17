@@ -1,0 +1,6 @@
+{
+  "name": "Barter-me",
+  "description": "Local trade and barter marketplace featuring secure reviews, live messages, geolocation match alerts, customizable profile tags, and complete offline persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
