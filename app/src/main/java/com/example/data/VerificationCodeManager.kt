@@ -2,6 +2,7 @@ package com.example.data
 
 import com.example.BuildConfig
 import java.security.MessageDigest
+import java.security.SecureRandom
 
 /**
  * Manages one-time verification codes with expiry. Codes are never logged or sent in push bodies.

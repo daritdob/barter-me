@@ -25,9 +25,15 @@ typealias AppNotification = NotificationEntity
 
 class BarterViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: BarterRepository
-    private val authRepository: AuthRepository
-    private val notificationHelper: NotificationHelper
+    private val repository = BarterRepository(
+        BarterDatabase.getDatabase(getApplication()).barterDao
+    )
+    private val authRepository = AuthRepository(getApplication())
+    private val notificationHelper = NotificationHelper(
+        getApplication(),
+        repository,
+        viewModelScope
+    )
 
     val isLoggedIn: StateFlow<Boolean> = authRepository.authState.map { it.isLoggedIn }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -81,33 +87,24 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     private val _activeChatListingId = MutableStateFlow<Int?>(null)
     val activeChatListingId: StateFlow<Int?> = _activeChatListingId.asStateFlow()
 
-    val myProfile: StateFlow<ProfileEntity?>
-    val allListings: StateFlow<List<ListingEntity>>
-    val savedListings: StateFlow<List<ListingEntity>>
-    val otherProfiles: StateFlow<List<ProfileEntity>>
-    val allChatMessages: StateFlow<List<ChatMessageEntity>>
+    val myProfile: StateFlow<ProfileEntity?> =
+        repository.myProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val allListings: StateFlow<List<ListingEntity>> =
+        repository.allListings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val savedListings: StateFlow<List<ListingEntity>> =
+        repository.savedListings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val otherProfiles: StateFlow<List<ProfileEntity>> =
+        repository.otherProfiles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val allChatMessages: StateFlow<List<ChatMessageEntity>> =
+        repository.allChatMessages.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     data class ChatThread(
         val listing: ListingEntity,
         val lastMessage: ChatMessageEntity
     )
 
-    val chatThreads: StateFlow<List<ChatThread>>
-    val filteredListings: StateFlow<List<ListingEntity>>
-
-    init {
-        val database = BarterDatabase.getDatabase(application)
-        repository = BarterRepository(database.barterDao)
-        authRepository = AuthRepository(application)
-        notificationHelper = NotificationHelper(application, repository, viewModelScope)
-
-        myProfile = repository.myProfile.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-        allListings = repository.allListings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-        savedListings = repository.savedListings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-        otherProfiles = repository.otherProfiles.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-        allChatMessages = repository.allChatMessages.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-        chatThreads = combine(repository.allChatMessages, repository.allListings) { messages, listings ->
+    val chatThreads: StateFlow<List<ChatThread>> =
+        combine(repository.allChatMessages, repository.allListings) { messages, listings ->
             messages.groupBy { it.listingId }
                 .mapNotNull { (listingId, msgList) ->
                     val listing = listings.firstOrNull { it.id == listingId } ?: return@mapNotNull null
@@ -117,7 +114,8 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                 .sortedByDescending { it.lastMessage.timestamp }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-        filteredListings = combine(allListings, preferences, myProfile) { listings, prefs, profile ->
+    val filteredListings: StateFlow<List<ListingEntity>> =
+        combine(allListings, preferences, myProfile) { listings, prefs, profile ->
             MatchEngine.filterListings(
                 listings = listings,
                 query = prefs.searchQuery,
@@ -127,6 +125,7 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    init {
         viewModelScope.launch {
             try {
                 val currentRatings = repository.getRatingsForUser("me").first()
