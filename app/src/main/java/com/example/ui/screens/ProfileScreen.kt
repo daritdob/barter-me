@@ -51,6 +51,9 @@ fun ProfileScreen(
     val isProUser by viewModel.isProUser.collectAsState()
     val walletBalance by viewModel.walletBalance.collectAsState()
     var showWithdrawDialog by remember { mutableStateOf(false) }
+    val locationMessage by viewModel.locationMessage.collectAsState()
+    val socialVerificationMessage by viewModel.socialVerificationMessage.collectAsState()
+    var socialProfileUrl by remember { mutableStateOf("") }
 
     // Collect profile
     val profileFlow = remember(userId) {
@@ -418,6 +421,23 @@ fun ProfileScreen(
                                     modifier = Modifier.fillMaxWidth().testTag("edit_loc_input"),
                                     singleLine = true
                                 )
+
+                                OutlinedButton(
+                                    onClick = { viewModel.refreshLocationFromGps() },
+                                    modifier = Modifier.fillMaxWidth().testTag("use_gps_location_btn")
+                                ) {
+                                    Icon(Icons.Default.MyLocation, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Use my current GPS location")
+                                }
+
+                                locationMessage?.let { message ->
+                                    Text(
+                                        text = message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
 
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 4.dp))
                                 
@@ -970,13 +990,21 @@ fun ProfileScreen(
                                     color = MaterialTheme.colorScheme.outline
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
+
+                                socialVerificationMessage?.let { message ->
+                                    Text(
+                                        text = message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                }
                                 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     if (BuildConfig.DEBUG && userId == "me") {
-                                    // Debug-only simulated verification — production requires server-side review
                                     Button(
                                         onClick = { viewModel.toggleSocialVerification() },
                                         colors = ButtonDefaults.buttonColors(
@@ -993,6 +1021,30 @@ fun ProfileScreen(
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(if (p.verifyStatus == "VERIFIED") "LinkedIn: Linked & Approved" else "Associate LinkedIn ID")
                                     }
+                                    } else if (userId == "me" && p.verifyStatus != "VERIFIED") {
+                                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedTextField(
+                                                value = socialProfileUrl,
+                                                onValueChange = { socialProfileUrl = it },
+                                                label = { Text("LinkedIn profile URL") },
+                                                modifier = Modifier.fillMaxWidth().testTag("social_profile_url_input"),
+                                                singleLine = true
+                                            )
+                                            Button(
+                                                onClick = {
+                                                    viewModel.requestSocialVerification(
+                                                        provider = "LINKEDIN",
+                                                        profileUrl = socialProfileUrl
+                                                    )
+                                                },
+                                                enabled = socialProfileUrl.isNotBlank(),
+                                                modifier = Modifier.fillMaxWidth().testTag("request_social_verify_btn")
+                                            ) {
+                                                Icon(Icons.Default.Link, contentDescription = null)
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Submit for team review")
+                                            }
+                                        }
                                     } else {
                                         Surface(
                                             modifier = Modifier

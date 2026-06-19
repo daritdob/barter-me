@@ -58,7 +58,18 @@ object MatchEngine {
 
     fun matchesSkills(profile: ProfileEntity, listing: ListingEntity): Boolean {
         return profile.skillsNeeded.contains(listing.categoryHave, ignoreCase = true) ||
-            profile.skillsNeeded.contains(listing.haveItem, ignoreCase = true)
+            profile.skillsNeeded.contains(listing.haveItem, ignoreCase = true) ||
+            profile.skillsOffered.contains(listing.categoryNeed, ignoreCase = true) ||
+            profile.skillsOffered.contains(listing.needItem, ignoreCase = true)
+    }
+
+    fun findComplementaryMatches(
+        profile: ProfileEntity,
+        listings: List<ListingEntity>
+    ): List<ListingEntity> {
+        return listings.filter { listing ->
+            listing.ownerId != profile.userId && matchesSkills(profile, listing)
+        }
     }
 
     fun isWithinRadius(

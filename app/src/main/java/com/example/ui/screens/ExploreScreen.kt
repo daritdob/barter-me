@@ -47,6 +47,8 @@ fun ExploreScreen(
     val myProfile by viewModel.myProfile.collectAsState()
     val otherProfiles by viewModel.otherProfiles.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
+    val smartMatches by viewModel.smartMatches.collectAsState()
+    val usesGeminiMatches by viewModel.usesGeminiMatches.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -393,20 +395,6 @@ fun ExploreScreen(
                     }
                 }
             } else {
-                val smartMatches = remember(listings, myProfile) {
-                    if (myProfile == null) emptyList<ListingEntity>()
-                    else {
-                        listings.filter { listing ->
-                            listing.ownerId != myProfile!!.userId && (
-                                myProfile!!.skillsNeeded.contains(listing.categoryHave, ignoreCase = true) ||
-                                myProfile!!.skillsNeeded.contains(listing.haveItem, ignoreCase = true) ||
-                                myProfile!!.skillsOffered.contains(listing.categoryNeed, ignoreCase = true) ||
-                                myProfile!!.skillsOffered.contains(listing.needItem, ignoreCase = true)
-                            )
-                        }
-                    }
-                }
-
                 LazyColumn(
                     modifier = Modifier
                         .weight(1f)
@@ -418,7 +406,7 @@ fun ExploreScreen(
                         item {
                             AISmartMatchesSection(
                                 matches = smartMatches,
-                                isFallback = false,
+                                isFallback = !usesGeminiMatches,
                                 distanceCalc = { viewModel.getDistanceTo(it) },
                                 onChatClick = { onNavigateToChat(it.id) },
                                 onProfileClick = { onNavigateToProfile(it.ownerId) },

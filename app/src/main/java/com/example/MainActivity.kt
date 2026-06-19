@@ -58,6 +58,29 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            val locationPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions()
+            ) { }
+
+            LaunchedEffect(Unit) {
+                val needsFine = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+                val needsCoarse = ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+                if (needsFine || needsCoarse) {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            }
+
             MyApplicationTheme(darkTheme = isDarkMode) {
                 val isLoggedIn by viewModel.isLoggedIn.collectAsState()
                 val isVerified by viewModel.isVerified.collectAsState()

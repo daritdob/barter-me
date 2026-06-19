@@ -7,8 +7,13 @@ import com.example.data.AuthRepository
 import com.example.data.BarterDatabase
 import com.example.data.BarterRepository
 import com.example.data.CredentialResult
+import com.example.data.GeminiMatchService
+import com.example.data.LocationProvider
+import com.example.data.LocationResult
 import com.example.data.MatchEngine
 import com.example.data.NotificationHelper
+import com.example.data.SocialVerificationRepository
+import com.example.data.SocialVerificationResult
 import com.example.data.model.ChatMessageEntity
 import com.example.data.model.CompletedTradeEntity
 import com.example.data.model.ListingEntity
@@ -34,6 +39,21 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         repository,
         viewModelScope
     )
+    private val locationProvider = LocationProvider(getApplication())
+    private val geminiMatchService = GeminiMatchService()
+    private val socialVerificationRepository = SocialVerificationRepository()
+
+    private val _smartMatches = MutableStateFlow<List<ListingEntity>>(emptyList())
+    val smartMatches: StateFlow<List<ListingEntity>> = _smartMatches.asStateFlow()
+
+    private val _usesGeminiMatches = MutableStateFlow(false)
+    val usesGeminiMatches: StateFlow<Boolean> = _usesGeminiMatches.asStateFlow()
+
+    private val _locationMessage = MutableStateFlow<String?>(null)
+    val locationMessage: StateFlow<String?> = _locationMessage.asStateFlow()
+
+    private val _socialVerificationMessage = MutableStateFlow<String?>(null)
+    val socialVerificationMessage: StateFlow<String?> = _socialVerificationMessage.asStateFlow()
 
     val isLoggedIn: StateFlow<Boolean> = authRepository.authState.map { it.isLoggedIn }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -126,6 +146,21 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        viewModelScope.launch {
+            combine(allListings, myProfile) { listings, profile ->
+                listings to profile
+            }.collect { (listings, profile) ->
+                if (profile == null) {
+                    _smartMatches.value = emptyList()
+                    _usesGeminiMatches.value = false
+                } else {
+                    val result = geminiMatchService.findSmartMatches(profile, listings)
+                    _smartMatches.value = result.listings
+                    _usesGeminiMatches.value = result.usedGemini
+                }
+            }
+        }
+
         viewModelScope.launch {
             try {
                 val currentRatings = repository.getRatingsForUser("me").first()
@@ -354,6 +389,8 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         skillsHave: String,
         skillsWant: String,
         locName: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
         isOnline: Boolean = true,
         isDndMode: Boolean = false,
         autoReply: String = "Hey there! I am on DND or offline, but will review as soon as I'm back.",
@@ -367,6 +404,8 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                 skillsOffered = skillsHave,
                 skillsNeeded = skillsWant,
                 locationName = locName,
+                latitude = latitude ?: oldProfile.latitude,
+                longitude = longitude ?: oldProfile.longitude,
                 isOnline = isOnline,
                 isDndMode = isDndMode,
                 autoReplyMessage = autoReply,
@@ -375,6 +414,75 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
             repository.updateProfile(updated)
             triggerMatchingCheck(updated)
         }
+    }
+
+    fun refreshLocationFromGps(onResult: (success: Boolean, error: String?) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            when (val result = locationProvider.getCurrentLocation()) {
+                is LocationResult.Success -> {
+                    val profile = myProfile.value
+                    if (profile != null) {
+                        repository.updateProfile(
+                            profile.copy(
+                                latitude = result.location.latitude,
+                                longitude = result.location.longitude,
+                                locationName = result.location.locationName
+                            )
+                        )
+                    }
+                    _locationMessage.value = "Location updated to ${result.location.locationName}"
+                    onResult(true, null)
+                }
+                is LocationResult.Error -> {
+                    _locationMessage.value = result.message
+                    onResult(false, result.message)
+                }
+            }
+        }
+    }
+
+    fun requestSocialVerification(
+        provider: String,
+        profileUrl: String,
+        onResult: (success: Boolean, message: String?) -> Unit = { _, _ -> }
+    ) {
+        viewModelScope.launch {
+            when (val result = socialVerificationRepository.requestVerification("me", provider, profileUrl)) {
+                is SocialVerificationResult.Approved -> {
+                    myProfile.value?.let { repository.updateProfile(it.copy(verifyStatus = "VERIFIED")) }
+                    val message = "Social profile verified."
+                    _socialVerificationMessage.value = message
+                    onResult(true, message)
+                }
+                is SocialVerificationResult.Submitted -> {
+                    val message = result.message
+                    _socialVerificationMessage.value = message
+                    onResult(true, message)
+                }
+                is SocialVerificationResult.Pending -> {
+                    val message = result.message
+                    _socialVerificationMessage.value = message
+                    onResult(true, message)
+                }
+                is SocialVerificationResult.Offline -> {
+                    val message = "Verification service is offline. Your request will be reviewed when connected."
+                    _socialVerificationMessage.value = message
+                    onResult(false, message)
+                }
+                is SocialVerificationResult.Error -> {
+                    _socialVerificationMessage.value = result.message
+                    onResult(false, result.message)
+                }
+            }
+        }
+    }
+
+    fun clearLocationMessage() {
+        _locationMessage.value = null
+    }
+
+    fun clearSocialVerificationMessage() {
+        _socialVerificationMessage.value = null
     }
 
     fun toggleSocialVerification() {
