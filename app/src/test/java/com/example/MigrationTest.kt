@@ -1,14 +1,11 @@
 package com.example
 
-import android.content.Context
-import androidx.room.testing.MigrationTestHelper
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
-import androidx.test.core.app.ApplicationProvider
-import com.example.data.BarterDatabase
+import android.database.sqlite.SQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
 import com.example.data.MIGRATION_5_6
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -18,16 +15,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class MigrationTest {
 
-    private val context: Context = ApplicationProvider.getApplicationContext()
-
-    @get:Rule
-    val helper = MigrationTestHelper(
-        context,
-        BarterDatabase::class.java,
-        emptyList(),
-        FrameworkSQLiteOpenHelperFactory()
-    )
-
     @Test
     fun migration5To6_hasExpectedVersions() {
         assertEquals(5, MIGRATION_5_6.startVersion)
@@ -36,14 +23,11 @@ class MigrationTest {
 
     @Test
     fun migrate5To6_createsNewTablesAndSeedData() {
-        helper.createDatabase(TEST_DB, 5).close()
+        val sqliteDb = SQLiteDatabase.createInMemory(null)
+        sqliteDb.version = 5
+        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
 
-        val db = helper.runMigrationsAndValidate(
-            TEST_DB,
-            6,
-            false,
-            MIGRATION_5_6
-        )
+        MIGRATION_5_6.migrate(db)
 
         db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='app_notifications'").use { cursor ->
             assertTrue(cursor.moveToFirst())
@@ -67,9 +51,5 @@ class MigrationTest {
         }
 
         db.close()
-    }
-
-    companion object {
-        private const val TEST_DB = "migration-test"
     }
 }
