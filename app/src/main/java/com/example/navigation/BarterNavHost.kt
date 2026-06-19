@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,10 +30,21 @@ fun BarterNavHost(
     viewModel: BarterViewModel,
     isDarkMode: Boolean,
     modifier: Modifier = Modifier,
+    deepLinkRoute: String? = null,
+    onDeepLinkHandled: () -> Unit = {},
     navController: NavHostController = rememberNavController()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    // Route to the destination carried by a tapped notification, then clear it.
+    LaunchedEffect(deepLinkRoute) {
+        val route = deepLinkRoute ?: return@LaunchedEffect
+        navController.navigate(route) {
+            launchSingleTop = true
+        }
+        onDeepLinkHandled()
+    }
 
     val showTopBar = currentRoute in setOf(
         BarterDestinations.EXPLORE,

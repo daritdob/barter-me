@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -23,9 +24,14 @@ import com.example.ui.viewmodel.BarterViewModel
 import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
+    // Holds the navigation route carried by a tapped notification so Compose can react to it.
+    private val pendingDeepLinkRoute = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        pendingDeepLinkRoute.value = intent?.getStringExtra(EXTRA_NAV_ROUTE)
 
         try {
             val workRequest = PeriodicWorkRequestBuilder<MatchNotificationWorker>(15, TimeUnit.MINUTES).build()
@@ -88,9 +94,24 @@ class MainActivity : ComponentActivity() {
                 if (!isLoggedIn || !isVerified) {
                     AuthScreen(viewModel = viewModel)
                 } else {
-                    BarterNavHost(viewModel = viewModel, isDarkMode = isDarkMode)
+                    BarterNavHost(
+                        viewModel = viewModel,
+                        isDarkMode = isDarkMode,
+                        deepLinkRoute = pendingDeepLinkRoute.value,
+                        onDeepLinkHandled = { pendingDeepLinkRoute.value = null },
+                    )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(EXTRA_NAV_ROUTE)?.let { pendingDeepLinkRoute.value = it }
+    }
+
+    companion object {
+        const val EXTRA_NAV_ROUTE = "barter_nav_route"
     }
 }

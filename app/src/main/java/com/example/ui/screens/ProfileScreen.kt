@@ -276,28 +276,7 @@ fun ProfileScreen(
                     }
                 }
 
-                if (userId == "me" && myListings.isNotEmpty()) {
-                    item {
-                        Text(
-                            "My offers",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    items(myListings, key = { it.id }) { listing ->
-                        com.example.ui.screens.explore.ListingCard(
-                            listing = listing,
-                            distanceText = listing.locationName,
-                            onSaveToggle = { viewModel.toggleSaveListing(listing) },
-                            onChatClick = { },
-                            onProfileClick = { },
-                            showStatus = true,
-                            isDarkTheme = isDarkMode,
-                        )
-                    }
-                }
-
-                // Trust Achievements Row / Gamification (User retention)
+                // Trust Achievements Row / Gamification (User retention) — key stats
                 if (!isEditing) {
                     item {
                         Card(
@@ -612,6 +591,146 @@ fun ProfileScreen(
                                     Text(text = p.locationName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                                 }
                             }
+                        }
+                    }
+
+                    // My posted offers (listings)
+                    if (userId == "me" && myListings.isNotEmpty()) {
+                        item {
+                            Text(
+                                "My offers",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        items(myListings, key = { it.id }) { listing ->
+                            com.example.ui.screens.explore.ListingCard(
+                                listing = listing,
+                                distanceText = listing.locationName,
+                                onSaveToggle = { viewModel.toggleSaveListing(listing) },
+                                onChatClick = { },
+                                onProfileClick = { },
+                                showStatus = true,
+                                isDarkTheme = isDarkMode,
+                            )
+                        }
+                    }
+
+                    // Verified Completed Trade History Section
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "VERIFIED COMPLETED TRADES",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${completedTrades.size} swaps",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    if (completedTrades.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .glassmorphic(cornerRadius = 16.dp, borderWidth = 1.dp, isDarkTheme = isDarkMode),
+                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Default.SwapHoriz,
+                                            contentDescription = "No trades completed icon",
+                                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "No completed swaps recorded on public trade ledger yet.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        items(completedTrades) { trade ->
+                            CompletedTradeCard(trade = trade, isDarkMode = isDarkMode)
+                        }
+                    }
+
+                    // Spacer divider
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Leave reviews or review summary
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "COMMUNITY TRUST HISTORY",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+
+                            if (userId != "me") {
+                                Button(
+                                    onClick = { showRatingSubmission = true },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.testTag("propose_rating_btn")
+                                ) {
+                                    Icon(Icons.Outlined.Feedback, contentDescription = "Rate", modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Verify Completed Swap")
+                                }
+                            }
+                        }
+                    }
+
+                    // Display Reviews List
+                    if (reviews.isEmpty()) {
+                        item {
+                            Card(modifier = Modifier.fillMaxWidth()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("No review logs recorded yet. Trust builds with swaps!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                            }
+                        }
+                    } else {
+                        items(reviews) { review ->
+                            RatingCard(review = review)
                         }
                     }
 
@@ -1102,9 +1221,11 @@ fun ProfileScreen(
                         }
                     }
 
+                    // Privacy & data controls — account deletion lives here, not out in the open.
                     if (userId == "me") {
                         item {
                             var showDeleteConfirmation by remember { mutableStateOf(false) }
+                            var privacyExpanded by remember { mutableStateOf(false) }
 
                             if (showDeleteConfirmation) {
                                 AlertDialog(
@@ -1135,7 +1256,7 @@ fun ProfileScreen(
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .testTag("delete_account_card")
+                                    .testTag("privacy_card")
                                     .glassmorphic(cornerRadius = 16.dp, borderWidth = 1.dp, isDarkTheme = isDarkMode),
                                 colors = CardDefaults.cardColors(
                                     containerColor = Color.Transparent
@@ -1143,175 +1264,71 @@ fun ProfileScreen(
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { privacyExpanded = !privacyExpanded }
+                                            .testTag("privacy_toggle"),
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.PrivacyTip,
+                                                contentDescription = "Privacy",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                "PRIVACY",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                         Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Delete Account profile delete",
-                                            tint = MaterialTheme.colorScheme.error
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            "ACCOUNT MANAGEMENT & SAFETY",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.error
+                                            imageVector = if (privacyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                            contentDescription = if (privacyExpanded) "Collapse privacy options" else "Expand privacy options",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "Permanently request full data removal under GDPR/CCPA requirements. Wiping your profile resets all community swap statistics and matches.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
-                                    )
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = { showDeleteConfirmation = true },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                                                contentColor = MaterialTheme.colorScheme.error
-                                            ),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .testTag("delete_account_button"),
-                                            border = androidx.compose.foundation.BorderStroke(
-                                                1.dp,
-                                                MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
-                                            )
+
+                                    if (privacyExpanded) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            "Permanently request full data removal under GDPR/CCPA requirements. Wiping your profile resets all community swap statistics and matches.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.DeleteForever,
-                                                contentDescription = "Confirm GDPR Deletion icon"
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Permanently Delete My Account")
+                                            Button(
+                                                onClick = { showDeleteConfirmation = true },
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                                                    contentColor = MaterialTheme.colorScheme.error
+                                                ),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .testTag("delete_account_button"),
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    1.dp,
+                                                    MaterialTheme.colorScheme.error.copy(alpha = 0.4f)
+                                                )
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.DeleteForever,
+                                                    contentDescription = "Confirm GDPR Deletion icon"
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Delete my account")
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    // Verified Completed Trade History Section
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "VERIFIED COMPLETED TRADES",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "${completedTrades.size} swaps",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    if (completedTrades.isEmpty()) {
-                        item {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .glassmorphic(cornerRadius = 16.dp, borderWidth = 1.dp, isDarkTheme = isDarkMode),
-                                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(20.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(
-                                            imageVector = Icons.Default.SwapHoriz,
-                                            contentDescription = "No trades completed icon",
-                                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(36.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            "No completed swaps recorded on public trade ledger yet.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        items(completedTrades) { trade ->
-                            CompletedTradeCard(trade = trade, isDarkMode = isDarkMode)
-                        }
-                    }
-
-                    // Spacer divider
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // Leave reviews or review summary
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "COMMUNITY TRUST HISTORY",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-
-                            if (userId != "me") {
-                                Button(
-                                    onClick = { showRatingSubmission = true },
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.testTag("propose_rating_btn")
-                                ) {
-                                    Icon(Icons.Outlined.Feedback, contentDescription = "Rate", modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Verify Completed Swap")
-                                }
-                            }
-                        }
-                    }
-
-                    // Display Reviews List
-                    if (reviews.isEmpty()) {
-                        item {
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("No review logs recorded yet. Trust builds with swaps!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                                }
-                            }
-                        }
-                    } else {
-                        items(reviews) { review ->
-                            RatingCard(review = review)
                         }
                     }
                 }

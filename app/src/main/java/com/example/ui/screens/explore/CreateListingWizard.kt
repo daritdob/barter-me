@@ -108,7 +108,11 @@ fun CreateListingWizard(
                 .testTag("create_listing_wizard"),
             color = MaterialTheme.colorScheme.background,
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
+            ) {
                 TopAppBar(
                     title = { Text("Post an offer") },
                     navigationIcon = {
@@ -196,42 +200,51 @@ fun CreateListingWizard(
                             }
                         }
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 3.dp,
+                            shadowElevation = 8.dp,
                         ) {
-                            if (step > 0) {
-                                SecondaryButton(
-                                    text = "Back",
-                                    onClick = { step -= 1 },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            if (step < 3) {
-                                PrimaryButton(
-                                    text = "Continue",
-                                    onClick = { step += 1 },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = stepValid(step, haveText, needText, description, guidelinesAccepted),
-                                )
-                            } else {
-                                PrimaryButton(
-                                    text = "Submit for review",
-                                    onClick = {
-                                        onClearSubmitState()
-                                        onSubmit(
-                                            haveText.trim(), needText.trim(),
-                                            categoryHave, categoryNeed,
-                                            description.trim(), haveType, needType,
-                                            deliveryMode, capturedPhotoUri,
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = guidelinesAccepted &&
-                                        stepValid(step, haveText, needText, description, guidelinesAccepted),
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .navigationBarsPadding()
+                                    .imePadding()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                if (step > 0) {
+                                    SecondaryButton(
+                                        text = "Back",
+                                        onClick = { step -= 1 },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                if (step < 3) {
+                                    PrimaryButton(
+                                        text = "Continue",
+                                        onClick = { step += 1 },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = stepValid(step, haveText, needText, description, guidelinesAccepted),
+                                    )
+                                } else {
+                                    PrimaryButton(
+                                        text = "Submit for review",
+                                        onClick = {
+                                            onClearSubmitState()
+                                            onSubmit(
+                                                haveText.trim(), needText.trim(),
+                                                categoryHave, categoryNeed,
+                                                description.trim(), haveType, needType,
+                                                deliveryMode, capturedPhotoUri,
+                                            )
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = guidelinesAccepted &&
+                                            stepValid(step, haveText, needText, description, guidelinesAccepted),
+                                    )
+                                }
                             }
                         }
                     }

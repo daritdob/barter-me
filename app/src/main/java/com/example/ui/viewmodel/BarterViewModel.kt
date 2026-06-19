@@ -28,6 +28,7 @@ import com.example.data.GuidelineResult
 import com.example.data.ShortfallDirection
 import com.example.data.ShortfallResult
 import com.example.data.ValueShortfallCalculator
+import com.example.navigation.BarterDestinations
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -629,10 +630,17 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                             submittedAt = System.currentTimeMillis(),
                         )
                     )
+                    // Tapping the notification lands on Profile → "My offers", which renders the
+                    // rejected offer together with its status and reason so the user can fix it.
+                    notificationHelper.showPushAndRecord(
+                        "Offer needs changes",
+                        "Your offer \"$have\" wasn't approved: ${checkResult.reasons.joinToString("; ")}",
+                        deepLinkRoute = BarterDestinations.PROFILE_ME,
+                    )
                     _listingSubmitState.value = ListingSubmitState.Failed(checkResult.reasons)
                 }
                 GuidelineResult.Passed -> {
-                    repository.addListing(
+                    val newListingId = repository.addListing(
                         ListingEntity(
                             ownerId = me.userId,
                             ownerName = me.name,
@@ -657,10 +665,12 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                             listingStatus = ListingStatus.APPROVED,
                             submittedAt = System.currentTimeMillis(),
                         )
-                    )
+                    ).toInt()
+                    // Tapping the notification deep-links straight to the live offer.
                     notificationHelper.showPushAndRecord(
                         "Offer is live",
-                        "Your offer \"$have\" is now visible near ${me.locationName}."
+                        "Your offer \"$have\" is now visible near ${me.locationName}.",
+                        deepLinkRoute = BarterDestinations.chatRoute(newListingId),
                     )
                     _listingSubmitState.value = ListingSubmitState.Success
                 }
