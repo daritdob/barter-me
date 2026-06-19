@@ -129,7 +129,8 @@ fun BarterNavHost(
                 ChatScreen(
                     viewModel = viewModel,
                     listingId = listingId,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToProfile = { navController.navigate(BarterDestinations.profileRoute(it)) }
                 )
             }
         }

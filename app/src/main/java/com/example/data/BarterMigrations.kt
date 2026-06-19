@@ -117,3 +117,29 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         )
     }
 }
+
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS blocked_users (
+                userId TEXT NOT NULL PRIMARY KEY,
+                blockedName TEXT NOT NULL,
+                timestamp INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS trade_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                listingId INTEGER NOT NULL,
+                reportedUserId TEXT NOT NULL,
+                reportedUserName TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                timestamp INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+    }
+}

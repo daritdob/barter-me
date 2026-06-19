@@ -9,6 +9,8 @@ import com.example.data.model.NotificationEntity
 import com.example.data.model.WalletTransactionEntity
 import com.example.data.model.TradeStateEntity
 import com.example.data.model.UserPreferencesEntity
+import com.example.data.model.BlockedUserEntity
+import com.example.data.model.TradeReportEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlin.math.*
@@ -43,6 +45,8 @@ class BarterRepository(private val barterDao: BarterDao) {
         states.associate { it.listingId to (it.signedSelfValue to it.signedCounterpartyValue) }
     }
     val userPreferences: Flow<UserPreferencesEntity?> = barterDao.getUserPreferences()
+    val blockedUsers: Flow<List<BlockedUserEntity>> = barterDao.getBlockedUsers()
+    val blockedUserIds: Flow<List<String>> = barterDao.getBlockedUserIds()
 
     suspend fun getProfileById(userId: String): ProfileEntity? {
         return barterDao.getProfileById(userId)
@@ -173,6 +177,34 @@ class BarterRepository(private val barterDao: BarterDao) {
                 state = state,
                 signedSelfValue = signedSelfValue ?: existing?.signedSelfValue ?: 0,
                 signedCounterpartyValue = signedCounterpartyValue ?: existing?.signedCounterpartyValue ?: 0
+            )
+        )
+    }
+
+    suspend fun isUserBlocked(userId: String): Boolean = barterDao.isUserBlocked(userId)
+
+    suspend fun blockUser(userId: String, name: String) {
+        barterDao.insertBlockedUser(
+            BlockedUserEntity(
+                userId = userId,
+                blockedName = name,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun unblockUser(userId: String) {
+        barterDao.unblockUser(userId)
+    }
+
+    suspend fun reportTrade(listingId: Int, reportedUserId: String, reportedUserName: String, reason: String) {
+        barterDao.insertTradeReport(
+            TradeReportEntity(
+                listingId = listingId,
+                reportedUserId = reportedUserId,
+                reportedUserName = reportedUserName,
+                reason = reason,
+                timestamp = System.currentTimeMillis()
             )
         )
     }

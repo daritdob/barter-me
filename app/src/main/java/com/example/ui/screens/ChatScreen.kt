@@ -22,6 +22,11 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.window.Dialog
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -53,6 +58,7 @@ import com.example.ui.screens.chat.CelebrationAnimationOverlay
 import com.example.ui.screens.chat.ChatBubble
 import com.example.ui.screens.chat.FulfillTradeDialog
 import com.example.ui.screens.chat.MilestoneRow
+import com.example.ui.screens.chat.ReportTradeDialog
 import com.example.ui.screens.chat.SignContractDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,6 +67,7 @@ fun ChatScreen(
     viewModel: BarterViewModel,
     listingId: Int,
     onBack: () -> Unit,
+    onNavigateToProfile: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
@@ -77,6 +84,14 @@ fun ChatScreen(
     var showFulfillDialog by remember { mutableStateOf(false) }
     var showSignSuccessAnimation by remember { mutableStateOf(false) }
     var showFulfillSuccessAnimation by remember { mutableStateOf(false) }
+
+    // Privacy & safety actions
+    val blockedUserIds by viewModel.blockedUserIds.collectAsState()
+    val isBlocked = partnerId.isNotEmpty() && blockedUserIds.contains(partnerId)
+    var showSafetyMenu by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
+    var showCancelConfirm by remember { mutableStateOf(false) }
     
     var milestoneHaveDelivered by remember(listingId) { mutableStateOf(false) }
     var milestoneNeedDelivered by remember(listingId) { mutableStateOf(false) }
@@ -105,7 +120,11 @@ fun ChatScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .clickable(enabled = partnerId.isNotEmpty()) { onNavigateToProfile(partnerId) }
+                            .testTag("chat_view_profile")
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = activeListing?.ownerName ?: "Barter Talk",
@@ -161,8 +180,66 @@ fun ChatScreen(
                         Icons.Default.Security,
                         contentDescription = "ratings security status",
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 16.dp)
+                        modifier = Modifier.padding(end = 4.dp)
                     )
+
+                    // Privacy & safety overflow menu
+                    Box {
+                        IconButton(
+                            onClick = { showSafetyMenu = true },
+                            modifier = Modifier.testTag("chat_safety_menu_btn")
+                        ) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "Privacy and safety options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSafetyMenu,
+                            onDismissRequest = { showSafetyMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("View profile & reputation") },
+                                onClick = {
+                                    showSafetyMenu = false
+                                    if (partnerId.isNotEmpty()) onNavigateToProfile(partnerId)
+                                },
+                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                modifier = Modifier.testTag("menu_view_profile")
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Report bad swap") },
+                                onClick = {
+                                    showSafetyMenu = false
+                                    showReportDialog = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
+                                modifier = Modifier.testTag("menu_report_swap")
+                            )
+                            DropdownMenuItem(
+                                text = { Text(if (isBlocked) "Unblock user" else "Block user") },
+                                onClick = {
+                                    showSafetyMenu = false
+                                    if (isBlocked) {
+                                        if (partnerId.isNotEmpty()) viewModel.unblockUser(partnerId)
+                                    } else {
+                                        showBlockConfirm = true
+                                    }
+                                },
+                                leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) },
+                                modifier = Modifier.testTag("menu_block_user")
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Cancel trade") },
+                                onClick = {
+                                    showSafetyMenu = false
+                                    showCancelConfirm = true
+                                },
+                                leadingIcon = { Icon(Icons.Default.Cancel, contentDescription = null) },
+                                modifier = Modifier.testTag("menu_cancel_trade")
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
@@ -198,7 +275,11 @@ fun ChatScreen(
                 ) {
                     Column {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = partnerId.isNotEmpty()) { onNavigateToProfile(partnerId) }
+                                .padding(12.dp)
+                                .testTag("swap_tile_view_profile"),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -571,6 +652,37 @@ fun ChatScreen(
             }
 
             // Secure bottom typing bar
+            if (isBlocked) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .testTag("chat_blocked_banner"),
+                    tonalElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.errorContainer
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Block,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "You blocked this user. Messaging is disabled.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            } else {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -625,6 +737,7 @@ fun ChatScreen(
                     }
                 }
             }
+            }
         }
     }
 
@@ -639,6 +752,76 @@ fun ChatScreen(
         CelebrationAnimationOverlay(
             isFulfillment = true,
             onDismiss = { showFulfillSuccessAnimation = false }
+        )
+    }
+
+    val counterpartyName = activeListing?.ownerName ?: partnerProfile?.name ?: "this member"
+
+    if (showReportDialog) {
+        ReportTradeDialog(
+            counterpartyName = counterpartyName,
+            onDismiss = { showReportDialog = false },
+            onSubmit = { reason ->
+                if (partnerId.isNotEmpty()) {
+                    viewModel.reportTrade(
+                        listingId = listingId,
+                        reportedUserId = partnerId,
+                        reportedUserName = counterpartyName,
+                        reason = reason
+                    )
+                }
+                showReportDialog = false
+            }
+        )
+    }
+
+    if (showBlockConfirm) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirm = false },
+            title = { Text("Block $counterpartyName?") },
+            text = { Text("Their listings will be hidden from your matches and feed, and you won't be able to message each other. You can unblock them later from this menu.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (partnerId.isNotEmpty()) {
+                            viewModel.blockUser(partnerId, counterpartyName, listingId)
+                        }
+                        showBlockConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_block_btn")
+                ) {
+                    Text("Block")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBlockConfirm = false }) { Text("Cancel") }
+            },
+            modifier = Modifier.testTag("block_user_dialog")
+        )
+    }
+
+    if (showCancelConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCancelConfirm = false },
+            title = { Text("Cancel this trade?") },
+            text = { Text("The current agreement will be withdrawn and the swap reset to negotiating. A note will be posted in the chat. This can't be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.cancelTrade(listingId, counterpartyName)
+                        showCancelConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_cancel_trade_btn")
+                ) {
+                    Text("Cancel trade")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelConfirm = false }) { Text("Keep trade") }
+            },
+            modifier = Modifier.testTag("cancel_trade_dialog")
         )
     }
 }

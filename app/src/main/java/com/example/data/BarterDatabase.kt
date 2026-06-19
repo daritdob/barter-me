@@ -18,6 +18,8 @@ import com.example.data.model.NotificationEntity
 import com.example.data.model.WalletTransactionEntity
 import com.example.data.model.TradeStateEntity
 import com.example.data.model.UserPreferencesEntity
+import com.example.data.model.BlockedUserEntity
+import com.example.data.model.TradeReportEntity
 
 @Database(
     entities = [
@@ -29,9 +31,11 @@ import com.example.data.model.UserPreferencesEntity
         NotificationEntity::class,
         WalletTransactionEntity::class,
         TradeStateEntity::class,
-        UserPreferencesEntity::class
+        UserPreferencesEntity::class,
+        BlockedUserEntity::class,
+        TradeReportEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class BarterDatabase : RoomDatabase() {
@@ -48,7 +52,7 @@ abstract class BarterDatabase : RoomDatabase() {
                     BarterDatabase::class.java,
                     "barter_database"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build()
                 INSTANCE = instance
                 

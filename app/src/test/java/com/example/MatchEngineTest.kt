@@ -61,4 +61,38 @@ class MatchEngineTest {
         val matches = MatchEngine.findComplementaryMatches(profile, listOf(ownListing))
         assertTrue(matches.isEmpty())
     }
+
+    @Test
+    fun findComplementaryMatches_excludesBlockedOwners() {
+        val matches = MatchEngine.findComplementaryMatches(
+            profile,
+            listOf(complementaryListing),
+            blockedOwnerIds = setOf("user_sarah")
+        )
+        assertTrue(matches.isEmpty())
+    }
+
+    @Test
+    fun filterListings_excludesBlockedOwners() {
+        val visible = MatchEngine.filterListings(
+            listings = listOf(complementaryListing),
+            query = "",
+            category = null,
+            maxDist = null,
+            profile = profile,
+            blockedOwnerIds = setOf("user_sarah")
+        )
+        assertTrue(visible.isEmpty())
+    }
+
+    @Test
+    fun excludeBlockedOwners_dropsOnlyBlockedListings() {
+        val other = complementaryListing.copy(id = 2, ownerId = "user_dave")
+        val result = MatchEngine.excludeBlockedOwners(
+            listOf(complementaryListing, other),
+            setOf("user_sarah")
+        )
+        assertEquals(1, result.size)
+        assertEquals("user_dave", result.first().ownerId)
+    }
 }

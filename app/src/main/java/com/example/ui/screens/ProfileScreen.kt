@@ -70,6 +70,12 @@ fun ProfileScreen(
     val completedTradesFlow = remember(userId) { viewModel.getCompletedTradesForUser(userId) }
     val completedTrades by completedTradesFlow.collectAsState(initial = emptyList())
     val myListings by viewModel.myListings.collectAsState()
+    // When viewing another member, surface only their APPROVED public offers
+    // (allListings is already the published, approved feed).
+    val publishedListings by viewModel.allListings.collectAsState()
+    val viewedUserListings = remember(publishedListings, userId) {
+        if (userId == "me") emptyList() else publishedListings.filter { it.ownerId == userId }
+    }
 
     // Fields for editing profile
     var nameField by remember(profile) { mutableStateOf(profile?.name ?: "") }
@@ -611,6 +617,29 @@ fun ProfileScreen(
                                 onChatClick = { },
                                 onProfileClick = { },
                                 showStatus = true,
+                                isDarkTheme = isDarkMode,
+                            )
+                        }
+                    }
+
+                    // Another member's public offers (read-only, approved only)
+                    if (userId != "me" && viewedUserListings.isNotEmpty()) {
+                        item {
+                            Text(
+                                "${p.name.substringBefore(' ')}'s offers",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.testTag("viewed_user_offers")
+                            )
+                        }
+                        items(viewedUserListings, key = { it.id }) { listing ->
+                            com.example.ui.screens.explore.ListingCard(
+                                listing = listing,
+                                distanceText = listing.locationName,
+                                onSaveToggle = { viewModel.toggleSaveListing(listing) },
+                                onChatClick = { },
+                                onProfileClick = { },
+                                showStatus = false,
                                 isDarkTheme = isDarkMode,
                             )
                         }

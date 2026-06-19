@@ -6,6 +6,7 @@ import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
 import com.example.data.MIGRATION_5_6
 import com.example.data.MIGRATION_6_7
 import com.example.data.MIGRATION_7_8
+import com.example.data.MIGRATION_8_9
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -116,6 +117,42 @@ class MigrationTest {
             assertEquals(0, cursor.getInt(0))
             assertEquals(0, cursor.getInt(1))
         }
+        db.close()
+    }
+
+    @Test
+    fun migration8To9_hasExpectedVersions() {
+        assertEquals(8, MIGRATION_8_9.startVersion)
+        assertEquals(9, MIGRATION_8_9.endVersion)
+    }
+
+    @Test
+    fun migrate8To9_createsBlockedUsersAndTradeReportsTables() {
+        val sqliteDb = SQLiteDatabase.createInMemory(null)
+        sqliteDb.version = 8
+        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
+
+        MIGRATION_8_9.migrate(db)
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='blocked_users'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+        }
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='trade_reports'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+        }
+
+        // New tables accept inserts with the expected schema.
+        db.execSQL("INSERT INTO blocked_users (userId, blockedName, timestamp) VALUES ('user_sarah', 'Sarah Jenkins', 123)")
+        db.query("SELECT blockedName FROM blocked_users WHERE userId = 'user_sarah'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Sarah Jenkins", cursor.getString(0))
+        }
+        db.execSQL("INSERT INTO trade_reports (listingId, reportedUserId, reportedUserName, reason, timestamp) VALUES (1, 'user_dave', 'David Klay', 'Did not deliver', 456)")
+        db.query("SELECT COUNT(*) FROM trade_reports").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(1, cursor.getInt(0))
+        }
+
         db.close()
     }
 }

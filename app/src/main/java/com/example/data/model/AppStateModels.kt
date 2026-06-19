@@ -38,3 +38,20 @@ data class UserPreferencesEntity(
     val selectedCategory: String? = null,
     val walletBalance: Int = 4200
 )
+
+@Entity(tableName = "blocked_users")
+data class BlockedUserEntity(
+    @PrimaryKey val userId: String, // user that has been blocked by the current user
+    val blockedName: String,
+    val timestamp: Long
+)
+
+@Entity(tableName = "trade_reports")
+data class TradeReportEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val listingId: Int,
+    val reportedUserId: String,
+    val reportedUserName: String,
+    val reason: String,
+    val timestamp: Long
+)

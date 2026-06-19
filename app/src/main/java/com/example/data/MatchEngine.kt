@@ -26,12 +26,26 @@ object MatchEngine {
         }
     }
 
+    /**
+     * Drops any listing owned by a blocked user. Pure helper so the blocked-owner
+     * exclusion can be unit tested independently of the Room feed query that also
+     * applies it at the database layer.
+     */
+    fun excludeBlockedOwners(
+        listings: List<ListingEntity>,
+        blockedOwnerIds: Set<String>
+    ): List<ListingEntity> {
+        if (blockedOwnerIds.isEmpty()) return listings
+        return listings.filter { it.ownerId !in blockedOwnerIds }
+    }
+
     fun filterListings(
         listings: List<ListingEntity>,
         query: String,
         category: String?,
         maxDist: Float?,
-        profile: ProfileEntity?
+        profile: ProfileEntity?,
+        blockedOwnerIds: Set<String> = emptySet()
     ): List<ListingEntity> {
         return listings.filter { listing ->
             val matchesQuery = query.isEmpty() ||
@@ -53,7 +67,8 @@ object MatchEngine {
                 true
             }
 
-            listing.listingStatus == ListingStatus.APPROVED &&
+            listing.ownerId !in blockedOwnerIds &&
+                listing.listingStatus == ListingStatus.APPROVED &&
                 matchesQuery && matchesCategory && matchesDistance
         }
     }
@@ -67,11 +82,13 @@ object MatchEngine {
 
     fun findComplementaryMatches(
         profile: ProfileEntity,
-        listings: List<ListingEntity>
+        listings: List<ListingEntity>,
+        blockedOwnerIds: Set<String> = emptySet()
     ): List<ListingEntity> {
         return listings.filter { listing ->
             listing.listingStatus == ListingStatus.APPROVED &&
                 listing.ownerId != profile.userId &&
+                listing.ownerId !in blockedOwnerIds &&
                 matchesSkills(profile, listing)
         }
     }

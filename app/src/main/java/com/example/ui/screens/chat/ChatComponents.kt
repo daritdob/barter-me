@@ -488,6 +488,115 @@ fun FulfillTradeDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReportTradeDialog(
+    counterpartyName: String,
+    onDismiss: () -> Unit,
+    onSubmit: (reason: String) -> Unit
+) {
+    var reason by remember { mutableStateOf("") }
+    val presetReasons = listOf(
+        "Didn't deliver as agreed",
+        "Suspected scam or fraud",
+        "Inappropriate behavior",
+        "Item/service not as described"
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .testTag("report_trade_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Flag,
+                        contentDescription = "Report icon",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        "Report bad swap",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                Text(
+                    "Tell us what went wrong with your swap with $counterpartyName. Reports are reviewed by our trust & safety team.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    presetReasons.forEach { preset ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (reason == preset) {
+                                MaterialTheme.colorScheme.errorContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reason = preset }
+                        ) {
+                            Text(
+                                text = preset,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = if (reason == preset) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Reason / details") },
+                    placeholder = { Text("Describe the issue...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("report_reason_input"),
+                    minLines = 2
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.testTag("report_cancel_btn")) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { if (reason.isNotBlank()) onSubmit(reason.trim()) },
+                        enabled = reason.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.testTag("report_submit_btn")
+                    ) {
+                        Text("Submit report")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun MilestoneRow(
     title: String,

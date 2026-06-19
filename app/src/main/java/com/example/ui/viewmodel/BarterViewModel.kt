@@ -136,6 +136,12 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     val allChatMessages: StateFlow<List<ChatMessageEntity>> =
         repository.allChatMessages.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Set of user ids the current user has blocked. Used to keep their listings out
+    // of matches/feed and to gate further messaging in chat.
+    val blockedUserIds: StateFlow<Set<String>> =
+        repository.blockedUserIds.map { it.toSet() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     val myListings: StateFlow<List<ListingEntity>> =
         myProfile.flatMapLatest { profile ->
             if (profile == null) flowOf(emptyList())
@@ -159,25 +165,26 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredListings: StateFlow<List<ListingEntity>> =
-        combine(allListings, preferences, myProfile) { listings, prefs, profile ->
+        combine(allListings, preferences, myProfile, blockedUserIds) { listings, prefs, profile, blocked ->
             MatchEngine.filterListings(
                 listings = listings,
                 query = prefs.searchQuery,
                 category = prefs.selectedCategory,
                 maxDist = prefs.maxDistanceFilter,
-                profile = profile
+                profile = profile,
+                blockedOwnerIds = blocked
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
-            combine(allListings, myProfile) { listings, profile ->
-                listings to profile
-            }.collect { (listings, profile) ->
+            combine(allListings, myProfile, blockedUserIds) { listings, profile, blocked ->
+                Triple(listings, profile, blocked)
+            }.collect { (listings, profile, blocked) ->
                 _smartMatches.value = if (profile == null) {
                     emptyList()
                 } else {
-                    MatchEngine.findComplementaryMatches(profile, listings)
+                    MatchEngine.findComplementaryMatches(profile, listings, blocked)
                 }
             }
         }
@@ -420,6 +427,72 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
             notificationHelper.showPushAndRecord(
                 "Barter Agreement Status",
                 "Exchange status: ${state.name.replace("_", " ")}"
+            )
+        }
+    }
+
+    /** Persists a report against a trade/counterparty and records an audit notification. */
+    fun reportTrade(listingId: Int, reportedUserId: String, reportedUserName: String, reason: String) {
+        if (reason.isBlank()) return
+        viewModelScope.launch {
+            repository.reportTrade(listingId, reportedUserId, reportedUserName, reason.trim())
+            notificationHelper.showPushAndRecord(
+                "Report submitted",
+                "Thanks for flagging this swap with $reportedUserName. Our trust & safety team will review it."
+            )
+        }
+    }
+
+    /**
+     * Blocks the counterparty: their listings drop out of matches/feed (via the
+     * published-listings query) and a system message records the block in the thread.
+     */
+    fun blockUser(userId: String, name: String, listingId: Int? = null) {
+        if (userId.isBlank() || userId == "me") return
+        viewModelScope.launch {
+            repository.blockUser(userId, name)
+            if (listingId != null) {
+                val me = myProfile.value
+                if (me != null) {
+                    repository.sendMessage(
+                        listingId = listingId,
+                        senderId = me.userId,
+                        senderName = me.name,
+                        messageText = "🚫 You blocked $name. Their listings are now hidden and messaging is disabled."
+                    )
+                }
+            }
+            notificationHelper.showPushAndRecord(
+                "User blocked",
+                "$name has been blocked. Their offers are hidden from your feed and matches."
+            )
+        }
+    }
+
+    fun unblockUser(userId: String) {
+        viewModelScope.launch { repository.unblockUser(userId) }
+    }
+
+    /**
+     * Cancels an in-progress trade for [listingId] by resetting the shared trade-state
+     * flow back to NEGOTIATING and posting a system message, mirroring how other
+     * lifecycle transitions surface in the chat thread.
+     */
+    fun cancelTrade(listingId: Int, counterpartyName: String) {
+        viewModelScope.launch {
+            repository.upsertTradeState(listingId, TradeState.NEGOTIATING.name)
+            val me = myProfile.value
+            if (me != null) {
+                repository.sendMessage(
+                    listingId = listingId,
+                    senderId = me.userId,
+                    senderName = me.name,
+                    messageText = "🛑 Trade cancelled. The agreement has been withdrawn and the swap reset to negotiating."
+                )
+            }
+            notificationHelper.showPushAndRecord(
+                "Trade cancelled",
+                "Your swap with $counterpartyName was cancelled and reset to negotiating."
             )
         }
     }

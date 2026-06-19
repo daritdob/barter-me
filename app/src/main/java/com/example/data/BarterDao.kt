@@ -10,6 +10,8 @@ import com.example.data.model.NotificationEntity
 import com.example.data.model.WalletTransactionEntity
 import com.example.data.model.TradeStateEntity
 import com.example.data.model.UserPreferencesEntity
+import com.example.data.model.BlockedUserEntity
+import com.example.data.model.TradeReportEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -32,7 +34,9 @@ interface BarterDao {
     fun getAllOtherProfiles(): Flow<List<ProfileEntity>>
 
     // Listings
-    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED' ORDER BY timestamp DESC")
+    // Blocked owners are excluded from the public feed in the same spirit as the
+    // APPROVED status filter, so their listings never surface in matches or browsing.
+    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED' AND ownerId NOT IN (SELECT userId FROM blocked_users) ORDER BY timestamp DESC")
     fun getPublishedListings(): Flow<List<ListingEntity>>
 
     @Query("SELECT * FROM listings ORDER BY timestamp DESC")
@@ -44,7 +48,7 @@ interface BarterDao {
     @Query("SELECT * FROM listings WHERE isSaved = 1 AND listingStatus = 'APPROVED' ORDER BY timestamp DESC")
     fun getSavedListings(): Flow<List<ListingEntity>>
 
-    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED'")
+    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED' AND ownerId NOT IN (SELECT userId FROM blocked_users)")
     suspend fun getAllListingsStatic(): List<ListingEntity>
 
     @Query("SELECT * FROM chat_messages")
@@ -118,6 +122,29 @@ interface BarterDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTradeState(state: TradeStateEntity)
+
+    // Blocked users
+    @Query("SELECT * FROM blocked_users ORDER BY timestamp DESC")
+    fun getBlockedUsers(): Flow<List<BlockedUserEntity>>
+
+    @Query("SELECT userId FROM blocked_users")
+    fun getBlockedUserIds(): Flow<List<String>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM blocked_users WHERE userId = :userId)")
+    suspend fun isUserBlocked(userId: String): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBlockedUser(blocked: BlockedUserEntity)
+
+    @Query("DELETE FROM blocked_users WHERE userId = :userId")
+    suspend fun unblockUser(userId: String)
+
+    // Trade reports
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTradeReport(report: TradeReportEntity)
+
+    @Query("SELECT * FROM trade_reports ORDER BY timestamp DESC")
+    fun getTradeReports(): Flow<List<TradeReportEntity>>
 
     // User preferences (singleton row id = 1)
     @Query("SELECT * FROM user_preferences WHERE id = 1 LIMIT 1")
