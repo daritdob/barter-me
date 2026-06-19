@@ -1,12 +1,14 @@
 package com.example
 
 import android.content.Context
-import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.BarterDatabase
 import com.example.data.MIGRATION_5_6
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -16,20 +18,32 @@ import org.robolectric.annotation.Config
 @Config(sdk = [28])
 class MigrationTest {
 
+    private val context: Context = ApplicationProvider.getApplicationContext()
+
+    @get:Rule
+    val helper = MigrationTestHelper(
+        context,
+        BarterDatabase::class.java,
+        emptyList(),
+        FrameworkSQLiteOpenHelperFactory()
+    )
+
+    @Test
+    fun migration5To6_hasExpectedVersions() {
+        assertEquals(5, MIGRATION_5_6.startVersion)
+        assertEquals(6, MIGRATION_5_6.endVersion)
+    }
+
     @Test
     fun migrate5To6_createsNewTablesAndSeedData() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val openHelper = FrameworkSQLiteOpenHelperFactory().create(
-            SupportSQLiteOpenHelper.Configuration.builder(context)
-                .name("migration-test.db")
-                .callback(object : SupportSQLiteOpenHelper.Callback(5) {
-                    override fun onCreate(db: SupportSQLiteDatabase) {}
-                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
-                })
-                .build()
+        helper.createDatabase(TEST_DB, 5).close()
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB,
+            6,
+            false,
+            MIGRATION_5_6
         )
-        val db = openHelper.writableDatabase
-        MIGRATION_5_6.migrate(db)
 
         db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='app_notifications'").use { cursor ->
             assertTrue(cursor.moveToFirst())
@@ -53,6 +67,9 @@ class MigrationTest {
         }
 
         db.close()
-        openHelper.close()
+    }
+
+    companion object {
+        private const val TEST_DB = "migration-test"
     }
 }
