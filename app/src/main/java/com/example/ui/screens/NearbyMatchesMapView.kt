@@ -1,12 +1,11 @@
 package com.example.ui.screens
 
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,30 +17,44 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import com.example.data.categoryPinColor
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
+import com.example.data.categoryPinColor
 import com.example.data.model.ListingEntity
-import com.example.ui.components.GlassCard
 import com.example.ui.components.glassmorphic
 import com.example.ui.viewmodel.BarterViewModel
-import kotlin.math.*
-import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.ContentScale
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.TilesOverlay
+import java.io.File
+
+private const val DEFAULT_MAP_ZOOM = 14.0
+
+/** Builds a simple circular map pin drawable tinted with the category color. */
+private fun buildPinDrawable(fillColor: Int, sizePx: Int, strokePx: Int): Drawable =
+    GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(fillColor)
+        setStroke(strokePx, android.graphics.Color.WHITE)
+        setSize(sizePx, sizePx)
+        setBounds(0, 0, sizePx, sizePx)
+    }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -54,46 +67,57 @@ fun NearbyMatchesMapView(
 ) {
     val myProfile by viewModel.myProfile.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
-    val scope = rememberCoroutineScope()
 
     val me = myProfile ?: return
 
-    // Interactive map state coordinates
-    var mapOffsetX by remember { mutableStateOf(0f) }
-    var mapOffsetY by remember { mutableStateOf(0f) }
-    // Interactive scale: default is 35000f dp per coordinate degree (perfect for NY area showing few-mile radius clearly)
-    var mapZoomScale by remember { mutableStateOf(45000f) }
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var selectedListing by remember { mutableStateOf<ListingEntity?>(null) }
 
-    // Radar pulse animation state
-    val infiniteTransition = rememberInfiniteTransition(label = "RadarSweeper")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0.8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = androidx.compose.animation.core.FastOutLinearInEasing),
-            repeatMode = RepeatMode.Reverse
-        ), label = "PulseAlpha"
-    )
+    val pinSizePx = with(density) { 26.dp.roundToPx() }
+    val meSizePx = with(density) { 30.dp.roundToPx() }
+    val strokePx = with(density) { 2.dp.roundToPx() }
+    val primaryArgb = MaterialTheme.colorScheme.primary.toArgb()
 
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = androidx.compose.animation.core.LinearOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ), label = "PulseScale"
-    )
+    // Live OpenStreetMap tile map. osmdroid needs no API key, so the debug
+    // build renders real, pannable/zoomable tiles out of the box.
+    val mapView = remember {
+        Configuration.getInstance().apply {
+            // A non-default user-agent is required by the OSM tile servers.
+            userAgentValue = context.packageName
+            // Keep all tile cache inside app-private storage so no external
+            // storage permission is needed on API 24+.
+            val base = File(context.cacheDir, "osmdroid")
+            osmdroidBasePath = base
+            osmdroidTileCache = File(base, "tiles")
+        }
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            // We provide our own teal-styled zoom FABs below.
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+            controller.setZoom(DEFAULT_MAP_ZOOM)
+            controller.setCenter(GeoPoint(me.latitude, me.longitude))
+        }
+    }
 
-    val radarAngle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(5000, easing = androidx.compose.animation.core.LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ), label = "RadarAngle"
-    )
+    // Forward Compose/Activity lifecycle to the osmdroid MapView.
+    DisposableEffect(lifecycleOwner, mapView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            mapView.onDetach()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -103,217 +127,53 @@ fun NearbyMatchesMapView(
             )
             .testTag("nearby_map_container")
     ) {
-        // 1. INLINE INTERACTIVE CANVAS MAP BACKGROUND
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        mapOffsetX += dragAmount.x
-                        mapOffsetY += dragAmount.y
-                    }
-                }
-        ) {
-            val widthPx = constraints.maxWidth.toFloat()
-            val heightPx = constraints.maxHeight.toFloat()
-            val centerX = widthPx / 2f
-            val centerY = heightPx / 2f
-
-            val currentDensity = LocalDensity.current
-            val scaleInDp = with(currentDensity) { mapZoomScale / density }
-
-            // Math base Projection calculation
-            val cosLat = cos(Math.toRadians(me.latitude))
-
-            val mapGridColor = if (isDarkMode) Color(0xFF2E334D).copy(alpha = 0.35f) else Color(0xFFD1D5DB).copy(alpha = 0.5f)
-            val radarCirclesColor = if (isDarkMode) Color(0xFF6366F1).copy(alpha = 0.12f) else Color(0xFF4F46E5).copy(alpha = 0.08f)
-            val radarSweepColor = if (isDarkMode) Color(0xFF6366F1).copy(alpha = 0.04f) else Color(0xFF4F46E5).copy(alpha = 0.03f)
-
-            // Canvas drawing grid and concentric radar rings
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                // Background grid lines (every 100 pixels based on pan offset)
-                val gridGap = 160f
-                val startX = mapOffsetX % gridGap
-                var cX = startX
-                while (cX < size.width) {
-                    drawLine(
-                        color = mapGridColor,
-                        start = Offset(cX, 0f),
-                        end = Offset(cX, size.height),
-                        strokeWidth = 1f
-                    )
-                    cX += gridGap
-                }
-
-                val startY = mapOffsetY % gridGap
-                var cY = startY
-                while (cY < size.height) {
-                    drawLine(
-                        color = mapGridColor,
-                        start = Offset(0f, cY),
-                        end = Offset(size.width, cY),
-                        strokeWidth = 1f
-                    )
-                    cY += gridGap
-                }
-
-                // Focus/Home screen coordinate center offset based on current drag position
-                val homeCenterX = centerX + mapOffsetX
-                val homeCenterY = centerY + mapOffsetY
-
-                // Concentric local distance radar rings: 1 mile, 3 miles, 5 miles, 12 miles
-                // 1 mile is approx 0.0145 degrees
-                val degreeMiles = 0.0145f
-                val listMiles = listOf(1f, 3f, 5f, 10f)
-
-                listMiles.forEach { mile ->
-                    val deltaDegree = degreeMiles * mile
-                    val radius = deltaDegree * scaleInDp
-                    
-                    drawCircle(
-                        color = radarCirclesColor,
-                        radius = radius,
-                        center = Offset(homeCenterX, homeCenterY),
-                        style = Stroke(
-                            width = 2f,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 10f), 0f)
-                        )
-                    )
-                }
-
-                // Drawing Radar glow line sweep
-                val sweepRadius = degreeMiles * 12f * scaleInDp
-                val angleRad = Math.toRadians(radarAngle.toDouble())
-                val endPointX = homeCenterX + sweepRadius * cos(angleRad).toFloat()
-                val endPointY = homeCenterY + sweepRadius * sin(angleRad).toFloat()
-
-                drawLine(
-                    color = radarSweepColor.copy(alpha = radarSweepColor.alpha * 2.5f),
-                    start = Offset(homeCenterX, homeCenterY),
-                    end = Offset(endPointX, endPointY),
-                    strokeWidth = 3f
-                )
-            }
-
-            // 2. CENTRAL ME POSITION ICON (USER'S BASE)
-            val homeCenterX = centerX + mapOffsetX
-            val homeCenterY = centerY + mapOffsetY
-
-            Box(
-                modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            (homeCenterX - with(currentDensity) { 20.dp.toPx() }).toInt(),
-                            (homeCenterY - with(currentDensity) { 20.dp.toPx() }).toInt()
-                        )
-                    }
-                    .size(40.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                // Pulsing outer locator halo
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = pulseScale,
-                            scaleY = pulseScale
-                        )
-                        .background(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f * pulseAlpha),
-                            shape = CircleShape
-                        )
+        // 1. LIVE OSM TILE MAP WITH MARKERS
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { mapView },
+            update = { map ->
+                // Invert tiles for a dark-theme friendly map.
+                map.overlayManager.tilesOverlay.setColorFilter(
+                    if (isDarkMode) TilesOverlay.INVERT_COLORS else null
                 )
 
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                        .border(3.dp, Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "My location marker pin",
-                        tint = Color.White,
-                        modifier = Modifier.size(12.dp)
-                    )
+                map.overlays.clear()
+
+                // User's own location marker (teal, matches the theme).
+                val meMarker = Marker(map).apply {
+                    position = GeoPoint(me.latitude, me.longitude)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    icon = buildPinDrawable(primaryArgb, meSizePx, strokePx)
+                    title = me.locationName
+                    setOnMarkerClickListener { _, _ ->
+                        selectedListing = null
+                        true
+                    }
                 }
-            }
+                map.overlays.add(meMarker)
 
-            // 3. SECTOR/LISTING PIN MARKERS
-            listings.forEach { listing ->
-                // Calculate Mercator projection offset from base location
-                val deltaLat = listing.latitude - me.latitude
-                val deltaLng = listing.longitude - me.longitude
-
-                // Compress longitude by cosine of latitude to maintain precise aspect ratio
-                val xDiff = deltaLng * cosLat
-                val yDiff = deltaLat
-
-                val pinX = centerX + (xDiff * scaleInDp) + mapOffsetX
-                val pinY = centerY - (yDiff * scaleInDp) + mapOffsetY
-
-                val isSelected = selectedListing?.id == listing.id
-
-                val categoryColor = remember(listing.categoryHave) {
-                    categoryPinColor(listing.categoryHave)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .offset {
-                            IntOffset(
-                                (pinX - with(currentDensity) { 18.dp.toPx() }).toInt(),
-                                (pinY - with(currentDensity) { 18.dp.toPx() }).toInt()
-                            )
+                // Nearby listing pins colored by category.
+                listings.forEach { listing ->
+                    val pinColor = categoryPinColor(listing.categoryHave).toArgb()
+                    val marker = Marker(map).apply {
+                        position = GeoPoint(listing.latitude, listing.longitude)
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        icon = buildPinDrawable(pinColor, pinSizePx, strokePx)
+                        title = listing.haveItem
+                        setOnMarkerClickListener { _, _ ->
+                            selectedListing = listing
+                            map.controller.animateTo(position)
+                            true
                         }
-                        .size(36.dp)
-                        .clickable {
-                            selectedListing = if (isSelected) null else listing
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isSelected) {
-                        // Focus visual ring indicator
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(categoryColor.copy(alpha = 0.25f), CircleShape)
-                                .border(2.dp, categoryColor, CircleShape)
-                        )
                     }
-
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(
-                                color = if (isSelected) categoryColor else categoryColor.copy(alpha = 0.9f),
-                                shape = CircleShape
-                            )
-                            .border(2.dp, Color.White, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = when (listing.categoryHave.lowercase()) {
-                                "photography" -> Icons.Default.PhotoCamera
-                                "cleaning" -> Icons.Default.CleaningServices
-                                "design" -> Icons.Default.Palette
-                                "education" -> Icons.Default.School
-                                "tech" -> Icons.Default.Computer
-                                "catering" -> Icons.Default.Restaurant
-                                else -> Icons.Default.SwapHoriz
-                            },
-                            contentDescription = "Category icon marker",
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
+                    map.overlays.add(marker)
                 }
-            }
-        }
 
-        // 4. FLOATING TOP CONTROLS (ZOOM SLIDERS, RECENTER compass)
+                map.invalidate()
+            }
+        )
+
+        // 2. FLOATING TOP CONTROLS (ZOOM, RECENTER compass)
         Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -324,9 +184,8 @@ fun NearbyMatchesMapView(
             // Recenter Target Compass Button
             SmallFloatingActionButton(
                 onClick = {
-                    mapOffsetX = 0f
-                    mapOffsetY = 0f
-                    mapZoomScale = 45000f
+                    mapView.controller.animateTo(GeoPoint(me.latitude, me.longitude))
+                    mapView.controller.setZoom(DEFAULT_MAP_ZOOM)
                 },
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary,
@@ -334,17 +193,13 @@ fun NearbyMatchesMapView(
             ) {
                 Icon(
                     imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Zoom & Recenter Map"
+                    contentDescription = "Recenter map on my location"
                 )
             }
 
             // Zoom In Button (+)
             SmallFloatingActionButton(
-                onClick = {
-                    if (mapZoomScale < 150000f) {
-                        mapZoomScale = (mapZoomScale * 1.35f).coerceAtMost(150000f)
-                    }
-                },
+                onClick = { mapView.controller.zoomIn() },
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.testTag("map_zoomin_btn")
@@ -357,11 +212,7 @@ fun NearbyMatchesMapView(
 
             // Zoom Out Button (-)
             SmallFloatingActionButton(
-                onClick = {
-                    if (mapZoomScale > 10000f) {
-                        mapZoomScale = (mapZoomScale / 1.35f).coerceAtLeast(10000f)
-                    }
-                },
+                onClick = { mapView.controller.zoomOut() },
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.testTag("map_zoomout_btn")
@@ -409,7 +260,7 @@ fun NearbyMatchesMapView(
             }
         }
 
-        // 5. SLIDE-UP DETAIL DRAWER OVERLAY CARD (FOR SELECTED PIN)
+        // 3. SLIDE-UP DETAIL DRAWER OVERLAY CARD (FOR SELECTED PIN)
         AnimatedVisibility(
             visible = selectedListing != null,
             enter = slideInVertically(
@@ -569,7 +420,7 @@ fun NearbyMatchesMapView(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
-                                
+
                                 Text(
                                     text = "Offers: ${listing.haveItem}",
                                     style = MaterialTheme.typography.titleMedium,
