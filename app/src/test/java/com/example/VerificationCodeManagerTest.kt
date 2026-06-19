@@ -21,7 +21,7 @@ class VerificationCodeManagerTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        manager = VerificationCodeManager(SecurePrefs(context))
+        manager = VerificationCodeManager(SecurePrefs.createForTest(context, "verification_code_test_prefs"))
         manager.clearPending()
     }
 

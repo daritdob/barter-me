@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.AuthRepository
 import com.example.data.CredentialResult
+import com.example.data.SecurePrefs
 import com.example.data.VerificationCodeManager
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -24,7 +25,8 @@ class AuthRepositoryTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        authRepository = AuthRepository(context)
+        val securePrefs = SecurePrefs.createForTest(context, "auth_repo_test_prefs")
+        authRepository = AuthRepository(context, securePrefs)
         runBlocking { authRepository.deleteAccount() }
     }
 

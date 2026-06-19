@@ -24,10 +24,13 @@ sealed class CredentialResult {
     data class Error(val message: String) : CredentialResult()
 }
 
-class AuthRepository(context: Context) {
+class AuthRepository(
+    context: Context,
+    securePrefsOverride: SecurePrefs? = null
+) {
 
     private val appContext = context.applicationContext
-    private val securePrefs = SecurePrefs(appContext)
+    private val securePrefs = securePrefsOverride ?: SecurePrefs(appContext)
     private val verificationCodes = VerificationCodeManager(securePrefs)
     private val firebaseAuth = FirebaseAuthService(appContext)
 
