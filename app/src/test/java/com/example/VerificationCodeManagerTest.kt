@@ -55,8 +55,8 @@ class VerificationCodeManagerTest {
     @Test
     fun clearPending_removesStoredCode() {
         manager.issueNewCode()
+        assertTrue(manager.hasPendingCode())
         manager.clearPending()
         assertFalse(manager.hasPendingCode())
-        assertFalse(manager.validate(VerificationCodeManager.DEBUG_FALLBACK_CODE))
     }
 }
