@@ -113,6 +113,9 @@ interface BarterDao {
     @Query("SELECT * FROM trade_states")
     fun getAllTradeStates(): Flow<List<TradeStateEntity>>
 
+    @Query("SELECT * FROM trade_states WHERE listingId = :listingId LIMIT 1")
+    suspend fun getTradeState(listingId: Int): TradeStateEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTradeState(state: TradeStateEntity)
 

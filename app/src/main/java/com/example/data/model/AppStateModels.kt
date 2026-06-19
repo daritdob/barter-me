@@ -24,7 +24,9 @@ data class WalletTransactionEntity(
 @Entity(tableName = "trade_states")
 data class TradeStateEntity(
     @PrimaryKey val listingId: Int,
-    val state: String // NEGOTIATING, AGREEMENT_SIGNED, IN_PROGRESS, UNDER_REVIEW, COMPLETED
+    val state: String, // NEGOTIATING, AGREEMENT_SIGNED, IN_PROGRESS, UNDER_REVIEW, COMPLETED
+    val signedSelfValue: Int = 0, // credit value the current user assigned to their own service at signing
+    val signedCounterpartyValue: Int = 0 // credit value assigned to the counterparty's service at signing
 )
 
 @Entity(tableName = "user_preferences")

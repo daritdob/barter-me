@@ -39,6 +39,9 @@ class BarterRepository(private val barterDao: BarterDao) {
     val tradeStates: Flow<Map<Int, String>> = barterDao.getAllTradeStates().map { states ->
         states.associate { it.listingId to it.state }
     }
+    val tradeValuations: Flow<Map<Int, Pair<Int, Int>>> = barterDao.getAllTradeStates().map { states ->
+        states.associate { it.listingId to (it.signedSelfValue to it.signedCounterpartyValue) }
+    }
     val userPreferences: Flow<UserPreferencesEntity?> = barterDao.getUserPreferences()
 
     suspend fun getProfileById(userId: String): ProfileEntity? {
@@ -155,8 +158,23 @@ class BarterRepository(private val barterDao: BarterDao) {
         barterDao.upsertUserPreferences(prefs)
     }
 
-    suspend fun upsertTradeState(listingId: Int, state: String) {
-        barterDao.upsertTradeState(TradeStateEntity(listingId = listingId, state = state))
+    suspend fun upsertTradeState(
+        listingId: Int,
+        state: String,
+        signedSelfValue: Int? = null,
+        signedCounterpartyValue: Int? = null
+    ) {
+        // Preserve previously-signed valuations across state-only transitions; only
+        // overwrite them when explicit values are supplied (e.g. at agreement signing).
+        val existing = barterDao.getTradeState(listingId)
+        barterDao.upsertTradeState(
+            TradeStateEntity(
+                listingId = listingId,
+                state = state,
+                signedSelfValue = signedSelfValue ?: existing?.signedSelfValue ?: 0,
+                signedCounterpartyValue = signedCounterpartyValue ?: existing?.signedCounterpartyValue ?: 0
+            )
+        )
     }
 
     suspend fun ensureAppStateSeeded() {

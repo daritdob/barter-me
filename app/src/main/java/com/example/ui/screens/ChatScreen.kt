@@ -446,7 +446,12 @@ fun ChatScreen(
                         walletBalance = walletBalance,
                         onDismiss = { showSignContractDialog = false },
                         onSign = { finalVal, yourVal, theirVal, shortfall, sign ->
-                            viewModel.updateTradeState(listing.id, BarterViewModel.TradeState.AGREEMENT_SIGNED)
+                            viewModel.updateTradeState(
+                                listing.id,
+                                BarterViewModel.TradeState.AGREEMENT_SIGNED,
+                                signedSelfValue = yourVal,
+                                signedCounterpartyValue = theirVal
+                            )
                             signedYourVal = yourVal
                             signedTheirVal = theirVal
                             
@@ -480,10 +485,17 @@ fun ChatScreen(
 
                 if (showFulfillDialog) {
                     val mePartyId = myProfile?.userId ?: "me"
-                    val shortfallResult = remember(signedYourVal, signedTheirVal, mePartyId, listing.ownerId) {
+                    val persistedValuations by viewModel.tradeValuations.collectAsState()
+                    // Persisted valuations are the source of truth (survive a restart between
+                    // signing and fulfillment); fall back to in-memory state if absent.
+                    val (persistedSelf, persistedCounterparty) = persistedValuations[listing.id]
+                        ?: (0 to 0)
+                    val effectiveSelfVal = if (persistedSelf > 0) persistedSelf else signedYourVal
+                    val effectiveCounterpartyVal = if (persistedCounterparty > 0) persistedCounterparty else signedTheirVal
+                    val shortfallResult = remember(effectiveSelfVal, effectiveCounterpartyVal, mePartyId, listing.ownerId) {
                         ValueShortfallCalculator.calculate(
-                            PartyValuation(mePartyId, "You", signedYourVal),
-                            PartyValuation(listing.ownerId, listing.ownerName, signedTheirVal)
+                            PartyValuation(mePartyId, "You", effectiveSelfVal),
+                            PartyValuation(listing.ownerId, listing.ownerName, effectiveCounterpartyVal)
                         )
                     }
                     FulfillTradeDialog(

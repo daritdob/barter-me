@@ -116,6 +116,11 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
             map.mapValues { (_, value) -> TradeState.valueOf(value) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
+    // Persisted per-side credit valuations keyed by listingId: (signedSelfValue, signedCounterpartyValue).
+    val tradeValuations: StateFlow<Map<Int, Pair<Int, Int>>> =
+        repository.tradeValuations
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     private val _activeChatListingId = MutableStateFlow<Int?>(null)
     val activeChatListingId: StateFlow<Int?> = _activeChatListingId.asStateFlow()
 
@@ -403,9 +408,14 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         return true
     }
 
-    fun updateTradeState(listingId: Int, state: TradeState) {
+    fun updateTradeState(
+        listingId: Int,
+        state: TradeState,
+        signedSelfValue: Int? = null,
+        signedCounterpartyValue: Int? = null
+    ) {
         viewModelScope.launch {
-            repository.upsertTradeState(listingId, state.name)
+            repository.upsertTradeState(listingId, state.name, signedSelfValue, signedCounterpartyValue)
             notificationHelper.showPushAndRecord(
                 "Barter Agreement Status",
                 "Exchange status: ${state.name.replace("_", " ")}"

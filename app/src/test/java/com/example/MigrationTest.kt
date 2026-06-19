@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
 import com.example.data.MIGRATION_5_6
 import com.example.data.MIGRATION_6_7
+import com.example.data.MIGRATION_7_8
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,6 +76,45 @@ class MigrationTest {
         MIGRATION_6_7.migrate(db)
         db.query("SELECT listingStatus FROM listings LIMIT 0").use { cursor ->
             assertTrue(cursor.columnCount >= 1)
+        }
+        db.close()
+    }
+
+    @Test
+    fun migration7To8_hasExpectedVersions() {
+        assertEquals(7, MIGRATION_7_8.startVersion)
+        assertEquals(8, MIGRATION_7_8.endVersion)
+    }
+
+    @Test
+    fun migration7To8_addsSignedValuationColumns() {
+        val sqliteDb = SQLiteDatabase.createInMemory(null)
+        sqliteDb.version = 7
+        sqliteDb.execSQL(
+            """
+            CREATE TABLE trade_states (
+                listingId INTEGER NOT NULL PRIMARY KEY,
+                state TEXT NOT NULL
+            )
+            """.trimIndent()
+        )
+        sqliteDb.execSQL(
+            """
+            INSERT INTO trade_states (listingId, state) VALUES (1, 'AGREEMENT_SIGNED')
+            """.trimIndent()
+        )
+        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
+
+        MIGRATION_7_8.migrate(db)
+
+        db.query("SELECT signedSelfValue, signedCounterpartyValue FROM trade_states LIMIT 0").use { cursor ->
+            assertTrue(cursor.columnCount >= 2)
+        }
+        // Existing rows get the safe default of 0 for the new columns.
+        db.query("SELECT signedSelfValue, signedCounterpartyValue FROM trade_states WHERE listingId = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+            assertEquals(0, cursor.getInt(1))
         }
         db.close()
     }

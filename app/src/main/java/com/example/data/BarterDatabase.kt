@@ -31,7 +31,7 @@ import com.example.data.model.UserPreferencesEntity
         TradeStateEntity::class,
         UserPreferencesEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class BarterDatabase : RoomDatabase() {
@@ -48,7 +48,7 @@ abstract class BarterDatabase : RoomDatabase() {
                     BarterDatabase::class.java,
                     "barter_database"
                 )
-                .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build()
                 INSTANCE = instance
                 
