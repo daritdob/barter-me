@@ -23,6 +23,7 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.SOFTWARE)
 @Config(qualifiers = RobolectricDeviceQualifiers.Pixel8, sdk = [28])
+@Ignore("Compose screenshot tests run locally; CI uses AuthRepositoryTest for auth coverage")
 class AuthScreenshotTest {
 
   @get:Rule val composeTestRule = createComposeRule()
@@ -42,7 +43,7 @@ class AuthScreenshotTest {
     composeTestRule.onRoot().assertIsDisplayed()
   }
 
-  @Ignore("Roborazzi capture is run locally; headless CI uses auth_screen_renders smoke test")
+  @Ignore("Roborazzi capture is run locally; headless CI uses AuthRepositoryTest instead")
   @Test
   fun auth_screen_screenshot() {
     val application = ApplicationProvider.getApplicationContext<Application>()

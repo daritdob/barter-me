@@ -1,8 +1,10 @@
 package com.example
 
-import android.database.sqlite.SQLiteDatabase
+import android.content.Context
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.test.core.app.ApplicationProvider
 import com.example.data.MIGRATION_5_6
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,10 +18,17 @@ class MigrationTest {
 
     @Test
     fun migrate5To6_createsNewTablesAndSeedData() {
-        val sqliteDb = SQLiteDatabase.createInMemory(null)
-        sqliteDb.version = 5
-        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
-
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val openHelper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name("migration-test.db")
+                .callback(object : SupportSQLiteOpenHelper.Callback(5) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build()
+        )
+        val db = openHelper.writableDatabase
         MIGRATION_5_6.migrate(db)
 
         db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='app_notifications'").use { cursor ->
@@ -44,5 +53,6 @@ class MigrationTest {
         }
 
         db.close()
+        openHelper.close()
     }
 }
