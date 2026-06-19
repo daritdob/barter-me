@@ -22,6 +22,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.data.ShortfallDirection
+import com.example.data.ShortfallResult
+import com.example.data.ValueShortfallCalculator
 import com.example.data.model.ChatMessageEntity
 import com.example.data.model.ListingEntity
 import com.example.ui.viewmodel.BarterViewModel
@@ -388,11 +391,23 @@ fun SignContractDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FulfillTradeDialog(
+    counterpartyName: String,
+    result: ShortfallResult,
+    mePartyId: String,
     onDismiss: () -> Unit,
-    onFulfill: (credits: Int) -> Unit
+    onFulfill: () -> Unit
 ) {
-    var confirmedValuation by remember { mutableStateOf("1500") }
-    
+    val iAmPayer = ValueShortfallCalculator.isPayer(result, mePartyId)
+    val settlementText = when (result.direction) {
+        ShortfallDirection.BALANCED ->
+            "Balanced cashless swap — no credits change hands. Both services were valued equally."
+        else -> if (iAmPayer) {
+            "You top up $counterpartyName with ${result.shortfall} credits to balance the value gap. This is debited from your wallet on completion."
+        } else {
+            "$counterpartyName tops up your wallet with ${result.shortfall} credits to balance the value gap. This is credited on completion."
+        }
+    }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(24.dp),
@@ -409,21 +424,49 @@ fun FulfillTradeDialog(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2E7D32)
                 )
-                
+
                 Text(
-                    "Both parties have satisfied their barter agreements. By clicking complete, the platform will release the matching escrow and transfer credits.",
+                    "Both parties have satisfied their barter agreements. On completion, the matching escrow is released and any value shortfall is settled in credits.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
-                
-                OutlinedTextField(
-                    value = confirmedValuation,
-                    onValueChange = { confirmedValuation = it.filter { char -> char.isDigit() } },
-                    label = { Text("Fulfill Credit Release Amount") },
-                    modifier = Modifier.fillMaxWidth().testTag("fulfill_valuation_input"),
-                    singleLine = true
-                )
-                
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (result.direction == ShortfallDirection.BALANCED)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "SHORTFALL SETTLEMENT",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                "${result.shortfall} credits",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.testTag("fulfill_shortfall_amount")
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            settlementText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -433,10 +476,7 @@ fun FulfillTradeDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = {
-                            val credits = confirmedValuation.toIntOrNull() ?: 1500
-                            onFulfill(credits)
-                        },
+                        onClick = { onFulfill() },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                         modifier = Modifier.testTag("fulfill_confirm_btn")
                     ) {

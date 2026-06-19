@@ -44,6 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.data.PartyValuation
+import com.example.data.ValueShortfallCalculator
 import com.example.data.model.ChatMessageEntity
 import com.example.data.model.ListingEntity
 import com.example.ui.viewmodel.BarterViewModel
@@ -78,6 +80,11 @@ fun ChatScreen(
     
     var milestoneHaveDelivered by remember(listingId) { mutableStateOf(false) }
     var milestoneNeedDelivered by remember(listingId) { mutableStateOf(false) }
+
+    // Per-side credit valuations captured when the Fair-Swap agreement is signed.
+    // Reused at fulfillment time to settle the value shortfall against the wallet.
+    var signedYourVal by remember(listingId) { mutableStateOf(0) }
+    var signedTheirVal by remember(listingId) { mutableStateOf(0) }
     
     // Fetch associated listing details to show context at the top
     LaunchedEffect(listingId) {
@@ -440,6 +447,8 @@ fun ChatScreen(
                         onDismiss = { showSignContractDialog = false },
                         onSign = { finalVal, yourVal, theirVal, shortfall, sign ->
                             viewModel.updateTradeState(listing.id, BarterViewModel.TradeState.AGREEMENT_SIGNED)
+                            signedYourVal = yourVal
+                            signedTheirVal = theirVal
                             
                             val shortfallMsg = if (shortfall > 0) {
                                 "⚠️ Value Imbalance Shortfall: You will pay an extra $shortfall credits to ${listing.ownerName} upon final fulfillment."
@@ -470,15 +479,33 @@ fun ChatScreen(
                 }
 
                 if (showFulfillDialog) {
+                    val mePartyId = myProfile?.userId ?: "me"
+                    val shortfallResult = remember(signedYourVal, signedTheirVal, mePartyId, listing.ownerId) {
+                        ValueShortfallCalculator.calculate(
+                            PartyValuation(mePartyId, "You", signedYourVal),
+                            PartyValuation(listing.ownerId, listing.ownerName, signedTheirVal)
+                        )
+                    }
                     FulfillTradeDialog(
+                        counterpartyName = listing.ownerName,
+                        result = shortfallResult,
+                        mePartyId = mePartyId,
                         onDismiss = { showFulfillDialog = false },
-                        onFulfill = { valuation ->
-                            viewModel.transferCredits("Swap completed: ${listing.haveItem}", valuation, "spent")
+                        onFulfill = {
+                            viewModel.settleShortfall(shortfallResult, mePartyId, listing.ownerName)
                             viewModel.updateTradeState(listing.id, BarterViewModel.TradeState.COMPLETED)
+                            val settlementMsg = when {
+                                shortfallResult.shortfall <= 0 ->
+                                    "🎉 Swap fully completed! Balanced cashless exchange — no credits changed hands."
+                                ValueShortfallCalculator.isPayer(shortfallResult, mePartyId) ->
+                                    "🎉 Swap fully completed! You settled a ${shortfallResult.shortfall} credit shortfall to ${listing.ownerName}."
+                                else ->
+                                    "🎉 Swap fully completed! ${listing.ownerName} settled a ${shortfallResult.shortfall} credit shortfall to you."
+                            }
                             viewModel.sendChatMessage(
                                 listingId = listing.id,
                                 recipientName = listing.ownerName,
-                                messageText = "🎉 Swap fully completed! Escrow released: $valuation credits transferred successfully to ${listing.ownerName}."
+                                messageText = settlementMsg
                             )
                             showFulfillDialog = false
                             showFulfillSuccessAnimation = true

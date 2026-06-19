@@ -25,6 +25,9 @@ import com.example.BuildConfig
 import com.example.data.ListingGuidelineChecker
 import com.example.data.ListingStatus
 import com.example.data.GuidelineResult
+import com.example.data.ShortfallDirection
+import com.example.data.ShortfallResult
+import com.example.data.ValueShortfallCalculator
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -348,6 +351,56 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                 "Transaction completed: $title. Wallet balance: $newBalance credits."
             )
         }
+    }
+
+    /**
+     * Settles a barter [ShortfallResult] against the local wallet ledger.
+     *
+     * Only the current user's wallet is real, so we debit when this user is the
+     * paying (lower-valued) side and credit when they are the receiving side.
+     * Balanced swaps are no-ops. Returns false if the user is the payer but the
+     * wallet cannot cover the shortfall.
+     */
+    fun settleShortfall(result: ShortfallResult, mePartyId: String, counterpartyName: String): Boolean {
+        if (result.direction == ShortfallDirection.BALANCED || result.shortfall <= 0) return true
+
+        val iAmPayer = result.payer?.partyId == mePartyId
+        if (iAmPayer && walletBalance.value < result.shortfall) return false
+
+        viewModelScope.launch {
+            if (iAmPayer) {
+                val newBalance = (walletBalance.value - result.shortfall).coerceAtLeast(0)
+                repository.updateWalletBalance(newBalance)
+                repository.insertWalletTransaction(
+                    WalletTransactionEntity(
+                        title = "Swap value shortfall paid to $counterpartyName",
+                        amount = result.shortfall,
+                        type = "spent",
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                notificationHelper.showPushAndRecord(
+                    "Shortfall Settled",
+                    "Paid ${result.shortfall} credits to $counterpartyName to balance the swap. Wallet balance: $newBalance credits."
+                )
+            } else {
+                val newBalance = walletBalance.value + result.shortfall
+                repository.updateWalletBalance(newBalance)
+                repository.insertWalletTransaction(
+                    WalletTransactionEntity(
+                        title = "Swap value shortfall received from $counterpartyName",
+                        amount = result.shortfall,
+                        type = "earned",
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                notificationHelper.showPushAndRecord(
+                    "Shortfall Settled",
+                    "Received ${result.shortfall} credits from $counterpartyName to balance the swap. Wallet balance: $newBalance credits."
+                )
+            }
+        }
+        return true
     }
 
     fun updateTradeState(listingId: Int, state: TradeState) {
