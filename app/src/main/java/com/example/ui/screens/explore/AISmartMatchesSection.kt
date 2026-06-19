@@ -69,7 +69,7 @@ fun AISmartMatchesSection(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isFallback) "SOCIALLY VERIFIED MATCHES" else "🤖 AI SMART MATCHES (COMPLEMENTARY)",
+                        text = if (isFallback) "SOCIALLY VERIFIED MATCHES" else "COMPLEMENTARY MATCHES",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
@@ -81,7 +81,7 @@ fun AISmartMatchesSection(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = if (isFallback) "TRENDING" else "98% ACCURACY",
+                        text = if (isFallback) "TRENDING" else "SKILL MATCH",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary,
@@ -93,7 +93,11 @@ fun AISmartMatchesSection(
             Spacer(modifier = Modifier.height(10.dp))
             
             Text(
-                text = if (isFallback) "Highly active neighborhood builders verified by community logs." else "Perfect trade matches detected instantly using your skill taxonomy and location!",
+                text = if (isFallback) {
+                    "Highly active neighborhood builders verified by community logs."
+                } else {
+                    "Listings that complement your skills and needs, matched locally on your device."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

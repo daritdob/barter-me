@@ -7,7 +7,6 @@ import com.example.data.AuthRepository
 import com.example.data.BarterDatabase
 import com.example.data.BarterRepository
 import com.example.data.CredentialResult
-import com.example.data.GeminiMatchService
 import com.example.data.LocationProvider
 import com.example.data.LocationResult
 import com.example.data.MatchEngine
@@ -40,14 +39,10 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope
     )
     private val locationProvider = LocationProvider(getApplication())
-    private val geminiMatchService = GeminiMatchService()
     private val socialVerificationRepository = SocialVerificationRepository()
 
     private val _smartMatches = MutableStateFlow<List<ListingEntity>>(emptyList())
     val smartMatches: StateFlow<List<ListingEntity>> = _smartMatches.asStateFlow()
-
-    private val _usesGeminiMatches = MutableStateFlow(false)
-    val usesGeminiMatches: StateFlow<Boolean> = _usesGeminiMatches.asStateFlow()
 
     private val _locationMessage = MutableStateFlow<String?>(null)
     val locationMessage: StateFlow<String?> = _locationMessage.asStateFlow()
@@ -150,13 +145,10 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
             combine(allListings, myProfile) { listings, profile ->
                 listings to profile
             }.collect { (listings, profile) ->
-                if (profile == null) {
-                    _smartMatches.value = emptyList()
-                    _usesGeminiMatches.value = false
+                _smartMatches.value = if (profile == null) {
+                    emptyList()
                 } else {
-                    val result = geminiMatchService.findSmartMatches(profile, listings)
-                    _smartMatches.value = result.listings
-                    _usesGeminiMatches.value = result.usedGemini
+                    MatchEngine.findComplementaryMatches(profile, listings)
                 }
             }
         }

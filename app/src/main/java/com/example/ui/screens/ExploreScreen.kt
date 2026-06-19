@@ -48,7 +48,6 @@ fun ExploreScreen(
     val otherProfiles by viewModel.otherProfiles.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val smartMatches by viewModel.smartMatches.collectAsState()
-    val usesGeminiMatches by viewModel.usesGeminiMatches.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -406,7 +405,7 @@ fun ExploreScreen(
                         item {
                             AISmartMatchesSection(
                                 matches = smartMatches,
-                                isFallback = !usesGeminiMatches,
+                                isFallback = false,
                                 distanceCalc = { viewModel.getDistanceTo(it) },
                                 onChatClick = { onNavigateToChat(it.id) },
                                 onProfileClick = { onNavigateToProfile(it.ownerId) },
