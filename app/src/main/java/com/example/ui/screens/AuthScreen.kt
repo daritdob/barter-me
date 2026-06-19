@@ -184,16 +184,14 @@ fun AuthScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Text(
-                            text = "Barter-me SECURE",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            text = "Barter-me",
+                            style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onBackground,
                             textAlign = TextAlign.Center,
-                            letterSpacing = 1.sp
                         )
                         
                         Text(
-                            text = "Local Skills Barter Network • Identity Secured",
+                            text = "Swap skills with people nearby",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center

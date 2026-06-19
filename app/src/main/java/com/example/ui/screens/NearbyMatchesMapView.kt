@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import com.example.data.categoryPinColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -256,15 +257,7 @@ fun NearbyMatchesMapView(
                 val isSelected = selectedListing?.id == listing.id
 
                 val categoryColor = remember(listing.categoryHave) {
-                    when (listing.categoryHave.lowercase()) {
-                        "design" -> Color(0xFFF59E0B)       // Yellow
-                        "tech" -> Color(0xFF10B981)         // Green/Emerald
-                        "photography" -> Color(0xFFEC4899)  // Pink
-                        "cleaning" -> Color(0xFF3B82F6)     // Blue
-                        "education" -> Color(0xFF8B5CF6)    // Purple
-                        "catering" -> Color(0xFFEF4444)     // Red
-                        else -> Color(0xFF6B7280)           // Gray
-                    }
+                    categoryPinColor(listing.categoryHave)
                 }
 
                 Box(

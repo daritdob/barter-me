@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
 import com.example.data.MIGRATION_5_6
+import com.example.data.MIGRATION_6_7
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,6 +51,31 @@ class MigrationTest {
             assertTrue(cursor.getInt(0) >= 1)
         }
 
+        db.close()
+    }
+
+    @Test
+    fun migration6To7_addsListingStatusColumns() {
+        val sqliteDb = SQLiteDatabase.createInMemory(null)
+        sqliteDb.version = 6
+        sqliteDb.execSQL(
+            """
+            CREATE TABLE listings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ownerId TEXT, ownerName TEXT, ownerAvatar TEXT,
+                ownerRating REAL, ownerRatingCount INTEGER, isOwnerVerified INTEGER,
+                haveItem TEXT, needItem TEXT, categoryHave TEXT, categoryNeed TEXT,
+                description TEXT, locationName TEXT, latitude REAL, longitude REAL,
+                timestamp INTEGER, isSaved INTEGER, haveType TEXT, needType TEXT,
+                deliveryMode TEXT, countryRestricted TEXT, photoUri TEXT
+            )
+            """.trimIndent()
+        )
+        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
+        MIGRATION_6_7.migrate(db)
+        db.query("SELECT listingStatus FROM listings LIMIT 0").use { cursor ->
+            assertTrue(cursor.columnCount >= 1)
+        }
         db.close()
     }
 }

@@ -32,17 +32,23 @@ interface BarterDao {
     fun getAllOtherProfiles(): Flow<List<ProfileEntity>>
 
     // Listings
+    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED' ORDER BY timestamp DESC")
+    fun getPublishedListings(): Flow<List<ListingEntity>>
+
     @Query("SELECT * FROM listings ORDER BY timestamp DESC")
     fun getAllListings(): Flow<List<ListingEntity>>
 
-    @Query("SELECT * FROM listings")
+    @Query("SELECT * FROM listings WHERE ownerId = :ownerId ORDER BY timestamp DESC")
+    fun getListingsByOwner(ownerId: String): Flow<List<ListingEntity>>
+
+    @Query("SELECT * FROM listings WHERE isSaved = 1 AND listingStatus = 'APPROVED' ORDER BY timestamp DESC")
+    fun getSavedListings(): Flow<List<ListingEntity>>
+
+    @Query("SELECT * FROM listings WHERE listingStatus = 'APPROVED'")
     suspend fun getAllListingsStatic(): List<ListingEntity>
 
     @Query("SELECT * FROM chat_messages")
     suspend fun getAllMessagesStatic(): List<ChatMessageEntity>
-
-    @Query("SELECT * FROM listings WHERE isSaved = 1 ORDER BY timestamp DESC")
-    fun getSavedListings(): Flow<List<ListingEntity>>
 
     @Query("SELECT * FROM listings WHERE id = :id LIMIT 1")
     suspend fun getListingById(id: Int): ListingEntity?

@@ -49,27 +49,7 @@ fun BarterNavHost(
                 BarterTopBar(
                     isDarkMode = isDarkMode,
                     currentRoute = currentRoute,
-                    onLogoClick = {
-                        navController.navigate(BarterDestinations.EXPLORE) {
-                            popUpTo(BarterDestinations.EXPLORE) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
                     onToggleDarkMode = { viewModel.toggleDarkMode() },
-                    onNotificationsClick = {
-                        navController.navigate(BarterDestinations.NOTIFICATIONS) {
-                            popUpTo(BarterDestinations.EXPLORE) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onProfileClick = {
-                        navController.navigate(BarterDestinations.PROFILE_ME) {
-                            popUpTo(BarterDestinations.EXPLORE) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
                 )
             }
         },
@@ -128,6 +108,7 @@ fun BarterNavHost(
                 ProfileScreen(
                     viewModel = viewModel,
                     userId = userId,
+                    showBackButton = userId != "me",
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -147,11 +128,15 @@ fun BarterNavHost(
 private fun BarterTopBar(
     isDarkMode: Boolean,
     currentRoute: String?,
-    onLogoClick: () -> Unit,
     onToggleDarkMode: () -> Unit,
-    onNotificationsClick: () -> Unit,
-    onProfileClick: () -> Unit
 ) {
+    val screenTitle = when (currentRoute) {
+        BarterDestinations.EXPLORE -> "Explore"
+        BarterDestinations.SAVED -> "Saved"
+        BarterDestinations.INBOX -> "Chats"
+        BarterDestinations.NOTIFICATIONS -> "Alerts"
+        else -> "Barter-me"
+    }
     Surface(
         color = MaterialTheme.colorScheme.background,
         modifier = Modifier
@@ -165,87 +150,19 @@ private fun BarterTopBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable(onClick = onLogoClick)
+            Text(
+                text = screenTitle,
+                style = MaterialTheme.typography.titleLarge,
+            )
+
+            IconButton(
+                onClick = onToggleDarkMode,
+                modifier = Modifier.testTag("dark_mode_toggle"),
             ) {
                 Icon(
-                    imageVector = Icons.Default.CompareArrows,
-                    contentDescription = "Barter-me Logo",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = "Toggle color scheme",
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Barter-me",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onToggleDarkMode,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
-                        .testTag("dark_mode_toggle")
-                ) {
-                    Icon(
-                        imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
-                        contentDescription = "Toggle color scheme",
-                        tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onNotificationsClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
-                        .testTag("nav_top_notifications")
-                ) {
-                    Icon(
-                        imageVector = if (currentRoute == BarterDestinations.NOTIFICATIONS) {
-                            Icons.Default.Notifications
-                        } else {
-                            Icons.Outlined.Notifications
-                        },
-                        contentDescription = "Match Alerts",
-                        tint = if (currentRoute == BarterDestinations.NOTIFICATIONS) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onProfileClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.primary,
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        )
-                        .testTag("nav_top_profile")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "My Trust Profile",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
     }
@@ -258,10 +175,8 @@ private fun BarterBottomBar(
     onNavigate: (String) -> Unit
 ) {
     NavigationBar(
-        modifier = Modifier
-            .testTag("bottom_navigation")
-            .glassmorphic(cornerRadius = 0.dp, borderWidth = 0.dp, isDarkTheme = isDarkMode),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        modifier = Modifier.testTag("bottom_navigation"),
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
         NavigationBarItem(

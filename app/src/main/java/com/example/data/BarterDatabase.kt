@@ -31,7 +31,7 @@ import com.example.data.model.UserPreferencesEntity
         TradeStateEntity::class,
         UserPreferencesEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class BarterDatabase : RoomDatabase() {
@@ -48,7 +48,7 @@ abstract class BarterDatabase : RoomDatabase() {
                     BarterDatabase::class.java,
                     "barter_database"
                 )
-                .addMigrations(MIGRATION_5_6)
+                .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
                 .build()
                 INSTANCE = instance
                 
@@ -162,16 +162,16 @@ abstract class BarterDatabase : RoomDatabase() {
                 ownerRating = 4.9f,
                 ownerRatingCount = 28,
                 isOwnerVerified = true,
-                haveItem = "Studio Portrait Session (3 Hours)",
-                needItem = "Full Cleaning of Photo Studio",
+                haveItem = "2-hour portrait session",
+                needItem = "Deep clean of photo studio",
                 categoryHave = "Photography",
                 categoryNeed = "Cleaning",
-                description = "I'm looking for an experienced cleaner to deep clean my 800 sq ft photography studio in SoHo (floors, windows, and product tables). In exchange, I will offer a professional 3-hour studio photoshoot, including 15 fully retouched high-resolution digital files!",
-                locationName = "SoHo, NY (1.3 miles)",
+                description = "I'll shoot and retouch 15 photos in my SoHo studio. Looking for someone to deep-clean floors, windows, and gear tables before my next client week.",
+                locationName = "SoHo, NY",
                 latitude = 40.7250,
                 longitude = -74.0100,
-                timestamp = System.currentTimeMillis() - 3600000 * 2, // 2 hours ago
-                isSaved = true
+                timestamp = System.currentTimeMillis() - 3600000 * 2,
+                isSaved = true,
             )
 
             val listing2 = ListingEntity(
@@ -182,16 +182,16 @@ abstract class BarterDatabase : RoomDatabase() {
                 ownerRating = 4.7f,
                 ownerRatingCount = 19,
                 isOwnerVerified = true,
-                haveItem = "Professional House/Office Cleaning",
-                needItem = "Brand Logo Redesign",
+                haveItem = "Eco-friendly home or office clean",
+                needItem = "Logo and brand kit design",
                 categoryHave = "Cleaning",
                 categoryNeed = "Design",
-                description = "Providing high-density deep eco-cleaning for apartment or workspace. Need someone to design a modern, sleek vector logo and guidelines for my growing business. Let's make a fair swap!",
-                locationName = "Financial District, NY (2.5 miles)",
+                description = "Full deep clean for a small apartment or office. Happy to trade for a modern logo plus simple color guidelines for my cleaning business.",
+                locationName = "Financial District, NY",
                 latitude = 40.7010,
                 longitude = -74.0200,
-                timestamp = System.currentTimeMillis() - 3600000 * 5, // 5 hours ago
-                isSaved = false
+                timestamp = System.currentTimeMillis() - 3600000 * 5,
+                isSaved = false,
             )
 
             val listing3 = ListingEntity(
@@ -202,16 +202,16 @@ abstract class BarterDatabase : RoomDatabase() {
                 ownerRating = 5.0f,
                 ownerRatingCount = 35,
                 isOwnerVerified = true,
-                haveItem = "1-on-1 Spanish Coaching Program",
-                needItem = "Website Coding Assistance",
+                haveItem = "Six Spanish conversation lessons",
+                needItem = "Help fixing a portfolio website",
                 categoryHave = "Education",
                 categoryNeed = "Tech",
-                description = "Fluent Spanish native speaker and veteran tutor offering 6 custom conversational classes. In exchange, I am hoping to find an Android/Web developer to help me debug and set up an simple personal portfolio site.",
-                locationName = "Central Park, NY (4.2 miles)",
+                description = "Native speaker offering six 45-minute tutoring sessions. I need help debugging a simple personal portfolio site built with basic HTML/CSS.",
+                locationName = "Central Park, NY",
                 latitude = 40.7829,
                 longitude = -73.9654,
-                timestamp = System.currentTimeMillis() - 3600000 * 12, // 12 hours ago
-                isSaved = true
+                timestamp = System.currentTimeMillis() - 3600000 * 12,
+                isSaved = true,
             )
 
             val listing4 = ListingEntity(
@@ -222,16 +222,16 @@ abstract class BarterDatabase : RoomDatabase() {
                 ownerRating = 4.5f,
                 ownerRatingCount = 8,
                 isOwnerVerified = false,
-                haveItem = "Catered Gourmet Meal for 4 People",
-                needItem = "Social Media Design/SEO help",
+                haveItem = "3-course dinner for four",
+                needItem = "Social media template pack",
                 categoryHave = "Catering",
-                categoryNeed = "Tech",
-                description = "I am a French Culinary Institute graduate and prep cook. I can prepare an elegant 3-course dinner for 4 people at your residence (groceries included). I need some help standardizing my social media feeds and basic SEO optimization.",
-                locationName = "Times Square, NY (3.0 miles)",
+                categoryNeed = "Design",
+                description = "French-trained cook preparing a three-course meal at your place (groceries included). Looking for help standardizing Instagram posts and story templates.",
+                locationName = "Times Square, NY",
                 latitude = 40.7580,
                 longitude = -73.9850,
-                timestamp = System.currentTimeMillis() - 3600000 * 24, // 1 day ago
-                isSaved = false
+                timestamp = System.currentTimeMillis() - 3600000 * 24,
+                isSaved = false,
             )
 
             dao.insertListing(listing1)
@@ -311,7 +311,7 @@ abstract class BarterDatabase : RoomDatabase() {
                     fromUserName = "Sarah Jenkins",
                     toUserId = "me",
                     ratingValue = 5,
-                    comment = "Amazing experience redesigning my photoshoot promo site! Alex is a elite UI designer and extremely proactive. Highly recommended!",
+                    comment = "Alex redesigned my promo site quickly and kept me in the loop the whole time. Great barter partner.",
                     timestamp = System.currentTimeMillis() - 3600000 * 24
                 )
             )

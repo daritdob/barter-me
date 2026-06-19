@@ -13,7 +13,8 @@ object MatchEngine {
         maxMiles: Double = DEFAULT_MAX_MILES
     ): ListingEntity? {
         return listings.firstOrNull { listing ->
-            listing.ownerId != profile.userId &&
+            listing.listingStatus == ListingStatus.APPROVED &&
+                listing.ownerId != profile.userId &&
                 (
                     profile.skillsNeeded.contains(listing.categoryHave, ignoreCase = true) ||
                         profile.skillsNeeded.contains(listing.haveItem, ignoreCase = true)
@@ -52,7 +53,8 @@ object MatchEngine {
                 true
             }
 
-            matchesQuery && matchesCategory && matchesDistance
+            listing.listingStatus == ListingStatus.APPROVED &&
+                matchesQuery && matchesCategory && matchesDistance
         }
     }
 
@@ -68,7 +70,9 @@ object MatchEngine {
         listings: List<ListingEntity>
     ): List<ListingEntity> {
         return listings.filter { listing ->
-            listing.ownerId != profile.userId && matchesSkills(profile, listing)
+            listing.listingStatus == ListingStatus.APPROVED &&
+                listing.ownerId != profile.userId &&
+                matchesSkills(profile, listing)
         }
     }
 

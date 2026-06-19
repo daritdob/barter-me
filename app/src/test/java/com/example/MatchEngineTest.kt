@@ -37,11 +37,12 @@ class MatchEngineTest {
         needItem = "Logo Design",
         categoryHave = "Photography",
         categoryNeed = "Design",
-        description = "Photo sessions",
+        description = "Photo sessions for local clients in Brooklyn.",
         locationName = "Brooklyn",
         latitude = 40.6782,
         longitude = -73.9442,
-        timestamp = 1L
+        timestamp = 1L,
+        listingStatus = "APPROVED",
     )
 
     @Test

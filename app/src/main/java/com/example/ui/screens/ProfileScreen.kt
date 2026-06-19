@@ -39,8 +39,9 @@ import com.example.ui.screens.profile.WithdrawDialog
 @Composable
 fun ProfileScreen(
     viewModel: BarterViewModel,
-    userId: String, // Can be "me" or a peer ID like "user_sarah"
+    userId: String,
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -68,6 +69,7 @@ fun ProfileScreen(
     // Collect profile completed trades
     val completedTradesFlow = remember(userId) { viewModel.getCompletedTradesForUser(userId) }
     val completedTrades by completedTradesFlow.collectAsState(initial = emptyList())
+    val myListings by viewModel.myListings.collectAsState()
 
     // Fields for editing profile
     var nameField by remember(profile) { mutableStateOf(profile?.name ?: "") }
@@ -83,10 +85,12 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (userId == "me") "My Trust Card" else "${profile?.name ?: "Barterer"}'s Card") },
+                title = { Text(if (userId == "me") "Profile" else profile?.name ?: "Profile") },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("profile_back_btn")) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    if (showBackButton) {
+                        IconButton(onClick = onBack, modifier = Modifier.testTag("profile_back_btn")) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
                 actions = {
@@ -112,12 +116,10 @@ fun ProfileScreen(
                         onClick = {
                             profile?.let { p ->
                                 val shareText = """
-                                    ⚡ Barter Exchange Opportunity:
-                                    Check out ${p.name}'s profile on Barter Exchange!
+                                    Check out ${p.name} on Barter-me!
                                     Offering: ${p.skillsOffered}
                                     Looking for: ${p.skillsNeeded}
-                                    Trust score: ${p.rating} ⭐ (${p.ratingCount} reviews)
-                                    Join the exchange!
+                                    Rating: ${p.rating} (${p.ratingCount} reviews)
                                 """.trimIndent()
                                 val sendIntent = Intent().apply {
                                     action = Intent.ACTION_SEND
@@ -271,6 +273,27 @@ fun ProfileScreen(
                                 )
                             }
                         }
+                    }
+                }
+
+                if (userId == "me" && myListings.isNotEmpty()) {
+                    item {
+                        Text(
+                            "My offers",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    items(myListings, key = { it.id }) { listing ->
+                        com.example.ui.screens.explore.ListingCard(
+                            listing = listing,
+                            distanceText = listing.locationName,
+                            onSaveToggle = { viewModel.toggleSaveListing(listing) },
+                            onChatClick = { },
+                            onProfileClick = { },
+                            showStatus = true,
+                            isDarkTheme = isDarkMode,
+                        )
                     }
                 }
 

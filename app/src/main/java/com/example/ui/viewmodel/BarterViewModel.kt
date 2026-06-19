@@ -22,8 +22,19 @@ import com.example.data.model.RatingEntity
 import com.example.data.model.UserPreferencesEntity
 import com.example.data.model.WalletTransactionEntity
 import com.example.BuildConfig
+import com.example.data.ListingGuidelineChecker
+import com.example.data.ListingStatus
+import com.example.data.GuidelineResult
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
+sealed class ListingSubmitState {
+    data object Idle : ListingSubmitState()
+    data object Checking : ListingSubmitState()
+    data object Success : ListingSubmitState()
+    data class Failed(val reasons: List<String>) : ListingSubmitState()
+}
 
 typealias AppNotification = NotificationEntity
 
@@ -49,6 +60,9 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _socialVerificationMessage = MutableStateFlow<String?>(null)
     val socialVerificationMessage: StateFlow<String?> = _socialVerificationMessage.asStateFlow()
+
+    private val _listingSubmitState = MutableStateFlow<ListingSubmitState>(ListingSubmitState.Idle)
+    val listingSubmitState: StateFlow<ListingSubmitState> = _listingSubmitState.asStateFlow()
 
     val isLoggedIn: StateFlow<Boolean> = authRepository.authState.map { it.isLoggedIn }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -113,6 +127,12 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     val allChatMessages: StateFlow<List<ChatMessageEntity>> =
         repository.allChatMessages.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val myListings: StateFlow<List<ListingEntity>> =
+        myProfile.flatMapLatest { profile ->
+            if (profile == null) flowOf(emptyList())
+            else repository.getListingsByOwner(profile.userId)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     data class ChatThread(
         val listing: ListingEntity,
         val lastMessage: ChatMessageEntity
@@ -163,7 +183,7 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                         fromUserName = "Sarah Jenkins",
                         toUserId = "me",
                         ratingValue = 5,
-                        comment = "Amazing experience redesigning my photoshoot promo site! Alex is a elite UI designer and extremely proactive. Highly recommended!"
+                        comment = "Alex redesigned my promo site quickly and kept me in the loop. Highly recommended!"
                     )
                     repository.addRating(
                         listingId = 104,
@@ -486,6 +506,10 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun clearListingSubmitState() {
+        _listingSubmitState.value = ListingSubmitState.Idle
+    }
+
     fun submitNewListing(
         have: String,
         need: String,
@@ -499,34 +523,85 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     ) {
         viewModelScope.launch {
             val me = myProfile.value ?: return@launch
-            repository.addListing(
-                ListingEntity(
-                    ownerId = me.userId,
-                    ownerName = me.name,
-                    ownerAvatar = me.avatarUrl,
-                    ownerRating = me.rating,
-                    ownerRatingCount = me.ratingCount,
-                    isOwnerVerified = me.verifyStatus == "VERIFIED",
-                    haveItem = have,
-                    needItem = need,
-                    categoryHave = categoryHave,
-                    categoryNeed = categoryNeed,
-                    description = desc,
-                    locationName = me.locationName,
-                    latitude = me.latitude,
-                    longitude = me.longitude,
-                    timestamp = System.currentTimeMillis(),
-                    haveType = haveType,
-                    needType = needType,
-                    deliveryMode = deliveryMode,
-                    countryRestricted = me.country,
-                    photoUri = photoUri
-                )
+            _listingSubmitState.value = ListingSubmitState.Checking
+            delay(1200)
+
+            val checkResult = ListingGuidelineChecker.check(
+                have = have,
+                need = need,
+                categoryHave = categoryHave,
+                categoryNeed = categoryNeed,
+                description = desc,
+                deliveryMode = deliveryMode,
+                photoUri = photoUri,
+                profileCountry = me.country,
             )
-            notificationHelper.showPushAndRecord(
-                "Offer Published!",
-                "Your listing '$have' has been broadcasted to barterers near ${me.locationName}!"
-            )
+
+            when (checkResult) {
+                is GuidelineResult.Failed -> {
+                    repository.addListing(
+                        ListingEntity(
+                            ownerId = me.userId,
+                            ownerName = me.name,
+                            ownerAvatar = me.avatarUrl,
+                            ownerRating = me.rating,
+                            ownerRatingCount = me.ratingCount,
+                            isOwnerVerified = me.verifyStatus == "VERIFIED",
+                            haveItem = have,
+                            needItem = need,
+                            categoryHave = categoryHave,
+                            categoryNeed = categoryNeed,
+                            description = desc,
+                            locationName = me.locationName,
+                            latitude = me.latitude,
+                            longitude = me.longitude,
+                            timestamp = System.currentTimeMillis(),
+                            haveType = haveType,
+                            needType = needType,
+                            deliveryMode = deliveryMode,
+                            countryRestricted = me.country,
+                            photoUri = photoUri,
+                            listingStatus = ListingStatus.REJECTED,
+                            rejectionReason = checkResult.reasons.joinToString("\n"),
+                            submittedAt = System.currentTimeMillis(),
+                        )
+                    )
+                    _listingSubmitState.value = ListingSubmitState.Failed(checkResult.reasons)
+                }
+                GuidelineResult.Passed -> {
+                    repository.addListing(
+                        ListingEntity(
+                            ownerId = me.userId,
+                            ownerName = me.name,
+                            ownerAvatar = me.avatarUrl,
+                            ownerRating = me.rating,
+                            ownerRatingCount = me.ratingCount,
+                            isOwnerVerified = me.verifyStatus == "VERIFIED",
+                            haveItem = have,
+                            needItem = need,
+                            categoryHave = categoryHave,
+                            categoryNeed = categoryNeed,
+                            description = desc,
+                            locationName = me.locationName,
+                            latitude = me.latitude,
+                            longitude = me.longitude,
+                            timestamp = System.currentTimeMillis(),
+                            haveType = haveType,
+                            needType = needType,
+                            deliveryMode = deliveryMode,
+                            countryRestricted = me.country,
+                            photoUri = photoUri,
+                            listingStatus = ListingStatus.APPROVED,
+                            submittedAt = System.currentTimeMillis(),
+                        )
+                    )
+                    notificationHelper.showPushAndRecord(
+                        "Offer is live",
+                        "Your offer \"$have\" is now visible near ${me.locationName}."
+                    )
+                    _listingSubmitState.value = ListingSubmitState.Success
+                }
+            }
         }
     }
 

@@ -24,12 +24,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.data.BARTER_CATEGORIES
 import com.example.data.model.ListingEntity
 import com.example.ui.viewmodel.BarterViewModel
-import com.example.ui.components.glassmorphic
-import com.example.ui.components.GlassCard
+import com.example.ui.components.SectionHeader
 import com.example.ui.screens.explore.AISmartMatchesSection
-import com.example.ui.screens.explore.CreateListingDialog
+import com.example.ui.screens.explore.CreateListingWizard
 import com.example.ui.screens.explore.ListingCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,11 +48,9 @@ fun ExploreScreen(
     val otherProfiles by viewModel.otherProfiles.collectAsState()
     val isDarkMode by viewModel.isDarkMode.collectAsState()
     val smartMatches by viewModel.smartMatches.collectAsState()
+    val listingSubmitState by viewModel.listingSubmitState.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    var showFilterSheet by remember { mutableStateOf(false) }
-
-    val categories = listOf("Photography", "Cleaning", "Design", "Education", "Tech", "Catering")
 
     var isFilterExpanded by remember { mutableStateOf(false) }
     var isMapView by remember { mutableStateOf(false) }
@@ -61,10 +59,13 @@ fun ExploreScreen(
         (otherProfiles + listOfNotNull(myProfile)).associateBy { it.userId }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+    ) {
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
         // Permanent Search Bar with Collapsible Geo Filter Control
         Row(
@@ -78,7 +79,7 @@ fun ExploreScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { viewModel.setSearchQuery(it) },
-                placeholder = { Text("Search skills, offers, location...") },
+                placeholder = { Text("Search offers, skills, people…") },
                 leadingIcon = { 
                     Icon(
                         imageVector = Icons.Default.Search, 
@@ -146,66 +147,32 @@ fun ExploreScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .glassmorphic(cornerRadius = 16.dp, borderWidth = 1.dp, isDarkTheme = isDarkMode),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    SectionHeader(
+                        title = "Distance filter",
+                        subtitle = "Near ${myProfile?.locationName ?: "your location"}",
+                    )
+
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = "Nearby area geographic filter",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "NEARBY GEOLOCATION LIMIT",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "My Base: ${myProfile?.locationName ?: "Brooklyn, NY"}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
                         if (maxDistance != null) {
-                            TextButton(
-                                onClick = { viewModel.setMaxDistance(null) },
-                                contentPadding = PaddingValues(horizontal = 8.dp)
-                            ) {
-                                Text("Reset Range", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            TextButton(onClick = { viewModel.setMaxDistance(null) }) {
+                                Text("Show anywhere")
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            Icons.Default.MyLocation,
-                            contentDescription = "Distance details location icon",
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (maxDistance != null) "Show within ${maxDistance!!.toInt()} miles radius" else "Show All (Anywhere/Online)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (maxDistance != null) "Within ${maxDistance!!.toInt()} miles" else "Any distance",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                     Slider(
                         value = maxDistance ?: 20f,
                         onValueChange = { viewModel.setMaxDistance(if (it >= 19.5f) null else it.coerceAtLeast(1f)) },
@@ -238,7 +205,7 @@ fun ExploreScreen(
                 FilterChip(
                     selected = selectedCategory == null,
                     onClick = { viewModel.setCategoryFilter(null) },
-                    label = { Text("All Trades") },
+                    label = { Text("All") },
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = MaterialTheme.colorScheme.surface,
                         selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -256,7 +223,7 @@ fun ExploreScreen(
                     modifier = Modifier.testTag("category_all")
                 )
             }
-            items(categories) { category ->
+            items(BARTER_CATEGORIES) { category ->
                 FilterChip(
                     selected = selectedCategory == category,
                     onClick = { viewModel.setCategoryFilter(category) },
@@ -313,8 +280,8 @@ fun ExploreScreen(
                             tint = if (!isMapView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "List Feed",
-                            fontWeight = FontWeight.Bold,
+                            "List",
+                            fontWeight = FontWeight.Medium,
                             color = if (!isMapView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -340,8 +307,8 @@ fun ExploreScreen(
                             tint = if (isMapView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "Nearby Map",
-                            fontWeight = FontWeight.Bold,
+                            "Map",
+                            fontWeight = FontWeight.Medium,
                             color = if (isMapView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -380,13 +347,12 @@ fun ExploreScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "No matches found in this range",
+                            "No offers in this area",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Try expanding your geolocation filter distance or change your keywords.",
+                            "Try widening the distance filter or changing your search.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.padding(horizontal = 24.dp)
@@ -447,30 +413,31 @@ fun ExploreScreen(
                 }
             }
         }
+    }
 
-        // Action FAB to publish a new offer
-        Box(
+        ExtendedFloatingActionButton(
+            onClick = { showCreateDialog = true },
+            icon = { Icon(Icons.Default.Add, contentDescription = "Post offer") },
+            text = { Text("Post offer") },
+            expanded = true,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp, end = 16.dp),
-            contentAlignment = Alignment.BottomEnd
-        ) {
-            ExtendedFloatingActionButton(
-                onClick = { showCreateDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add listing") },
-                text = { Text("Propose Swap") },
-                expanded = true,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.testTag("create_listing_fab")
-            )
-        }
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .testTag("create_listing_fab")
+        )
     }
 
     if (showCreateDialog) {
-        CreateListingDialog(
+        CreateListingWizard(
             profileCountry = myProfile?.country ?: "USA",
-            onDismiss = { showCreateDialog = false },
+            submitState = listingSubmitState,
+            onDismiss = {
+                viewModel.clearListingSubmitState()
+                showCreateDialog = false
+            },
+            onClearSubmitState = { viewModel.clearListingSubmitState() },
             onSubmit = { have, need, catHave, catNeed, desc, haveType, needType, deliveryMode, photo ->
                 viewModel.submitNewListing(
                     have = have,
@@ -481,10 +448,9 @@ fun ExploreScreen(
                     haveType = haveType,
                     needType = needType,
                     deliveryMode = deliveryMode,
-                    photoUri = photo
+                    photoUri = photo,
                 )
-                showCreateDialog = false
-            }
+            },
         )
     }
 }

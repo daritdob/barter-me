@@ -2,6 +2,7 @@ package com.example.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.example.data.ListingStatus
 import java.io.Serializable
 
 @Entity(tableName = "profiles")
@@ -49,7 +50,10 @@ data class ListingEntity(
     val needType: String = "Service", // "Product" or "Service"
     val deliveryMode: String = "Online", // "Online" or "Physical In-Person Handover"
     val countryRestricted: String = "USA", // Physical handovers restricted to USA
-    val photoUri: String? = null // Captured photo URI for offline trade item retrieval
+    val photoUri: String? = null, // Captured photo URI for offline trade item retrieval
+    val listingStatus: String = ListingStatus.APPROVED,
+    val rejectionReason: String? = null,
+    val submittedAt: Long = System.currentTimeMillis(),
 ) : Serializable
 
 @Entity(tableName = "chat_messages")

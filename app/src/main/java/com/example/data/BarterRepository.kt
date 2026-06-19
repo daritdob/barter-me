@@ -30,7 +30,7 @@ class BarterRepository(private val barterDao: BarterDao) {
     }
 
     val myProfile: Flow<ProfileEntity?> = barterDao.getMyProfile()
-    val allListings: Flow<List<ListingEntity>> = barterDao.getAllListings()
+    val allListings: Flow<List<ListingEntity>> = barterDao.getPublishedListings()
     val savedListings: Flow<List<ListingEntity>> = barterDao.getSavedListings()
     val otherProfiles: Flow<List<ProfileEntity>> = barterDao.getAllOtherProfiles()
     val allChatMessages: Flow<List<ChatMessageEntity>> = barterDao.getAllChatMessages()
@@ -52,6 +52,9 @@ class BarterRepository(private val barterDao: BarterDao) {
     suspend fun updateProfile(profile: ProfileEntity) {
         barterDao.insertProfile(profile)
     }
+
+    fun getListingsByOwner(ownerId: String): Flow<List<ListingEntity>> =
+        barterDao.getListingsByOwner(ownerId)
 
     suspend fun addListing(listing: ListingEntity): Long {
         return barterDao.insertListing(listing)
