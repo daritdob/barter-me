@@ -100,7 +100,14 @@ fun CreateListingWizard(
 
     Dialog(
         onDismissRequest = { if (!isChecking) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        // decorFitsSystemWindows = false makes the Dialog's own window edge-to-edge so
+        // it actually dispatches status-bar / navigation-bar / IME insets to its content.
+        // Without it, statusBarsPadding()/navigationBarsPadding()/imePadding() inside the
+        // dialog resolve to zero and the footer buttons sit under the nav bar / off-screen.
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
     ) {
         Surface(
             modifier = Modifier
@@ -209,8 +216,15 @@ fun CreateListingWizard(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .navigationBarsPadding()
-                                    .imePadding()
+                                    // Use the union of the nav-bar and IME insets so the
+                                    // footer clears the nav bar when the keyboard is hidden
+                                    // and rises just above the keyboard when shown — without
+                                    // double-counting the nav bar (the IME inset already
+                                    // spans the nav-bar region) that .navigationBarsPadding()
+                                    // + .imePadding() stacked together would add.
+                                    .windowInsetsPadding(
+                                        WindowInsets.navigationBars.union(WindowInsets.ime)
+                                    )
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {

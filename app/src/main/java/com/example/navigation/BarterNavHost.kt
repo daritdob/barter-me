@@ -84,7 +84,12 @@ fun BarterNavHost(
         NavHost(
             navController = navController,
             startDestination = BarterDestinations.EXPLORE,
-            modifier = Modifier.padding(innerPadding)
+            // Apply the Scaffold insets as padding AND mark them consumed so nested
+            // screens (e.g. ChatScreen's own Scaffold + imePadding) don't re-apply the
+            // same system-bar/IME insets, which previously caused a double-counted gap.
+            modifier = Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         ) {
             composable(BarterDestinations.EXPLORE) {
                 ExploreScreen(
