@@ -74,7 +74,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Artifact:** \`${APK_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Size:** ${APK_SIZE}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Package:** \`com.aistudio.barter.xyzwvk\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package:** \`com.barterme\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **R8:** minify + resource shrinking enabled" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${APK_NAME}" = "app-release-unsigned.apk" ]; then

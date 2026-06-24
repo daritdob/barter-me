@@ -61,6 +61,6 @@ jobs:
           echo "## Barter-me debug APK" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Size:** ${APK_SIZE}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Package:** \`com.aistudio.barter.xyzwvk\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package:** \`com.barterme\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Download the APK from the **Artifacts** section on this workflow run, then install it on your Android phone." >> "$GITHUB_STEP_SUMMARY"
