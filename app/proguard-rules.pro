@@ -117,7 +117,7 @@
     @retrofit2.http.* <methods>;
 }
 # R8 full mode strips generic signatures from return types unless told otherwise.
--if interface * { @retrofit2.http.* <methods>; }
+-if interface * { @retrofit2.http.* public *** *(...); }
 -keep,allowoptimization,allowshrinking,allowobfuscation class <3>
 
 # -----------------------------------------------------------------------------
