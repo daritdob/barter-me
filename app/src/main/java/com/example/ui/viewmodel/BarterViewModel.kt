@@ -325,12 +325,16 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun buyCredits(credits: Int, priceUSD: Double) {
+        // Real in-app billing is not implemented yet, so this mock grant must never
+        // run in release builds. The UI also disables the store outside debug, but we
+        // guard here as defense-in-depth so no code path can hand out free credits.
+        if (!BuildConfig.DEBUG) return
         viewModelScope.launch {
             val newBalance = walletBalance.value + credits
             repository.updateWalletBalance(newBalance)
             repository.insertWalletTransaction(
                 WalletTransactionEntity(
-                    title = "Credit Top-Up via Secure In-App Purchase ($${String.format("%.2f", priceUSD)})",
+                    title = "Credit Top-Up (test purchase, $${String.format("%.2f", priceUSD)})",
                     amount = credits,
                     type = "earned",
                     timestamp = System.currentTimeMillis()

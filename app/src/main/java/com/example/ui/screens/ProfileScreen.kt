@@ -30,6 +30,7 @@ import com.example.data.model.CompletedTradeEntity
 import com.example.ui.viewmodel.BarterViewModel
 import com.example.ui.components.glassmorphic
 import com.example.ui.components.GlassCard
+import com.example.ui.screens.profile.BuyCreditsConfirmDialog
 import com.example.ui.screens.profile.CompletedTradeCard
 import com.example.ui.screens.profile.RatingCard
 import com.example.ui.screens.profile.SubmitRatingDialog
@@ -52,6 +53,8 @@ fun ProfileScreen(
     val isProUser by viewModel.isProUser.collectAsState()
     val walletBalance by viewModel.walletBalance.collectAsState()
     var showWithdrawDialog by remember { mutableStateOf(false) }
+    // Pending credit pack (credits to priceUSD) awaiting purchase confirmation.
+    var creditPackToBuy by remember { mutableStateOf<Pair<Int, Double>?>(null) }
     val locationMessage by viewModel.locationMessage.collectAsState()
     val socialVerificationMessage by viewModel.socialVerificationMessage.collectAsState()
     var socialProfileUrl by remember { mutableStateOf("") }
@@ -1053,6 +1056,29 @@ fun ProfileScreen(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
+
+                                    // Real in-app billing is not wired up yet. The store only grants
+                                    // credits in debug builds (as a clearly-labeled mock); release
+                                    // builds disable the packs until Play Billing ships.
+                                    val isCreditStoreMock = BuildConfig.DEBUG
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    if (isCreditStoreMock) {
+                                        Text(
+                                            "🧪 Debug/test purchase — no real charge. Credits are granted locally for testing only.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.testTag("buy_credits_mock_note")
+                                        )
+                                    } else {
+                                        Text(
+                                            "🔒 In-app purchases coming soon. Credit packs aren't available for purchase yet.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.testTag("buy_credits_coming_soon_note")
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(12.dp))
                                     
                                     Row(
@@ -1061,7 +1087,8 @@ fun ProfileScreen(
                                     ) {
                                         // Package 1
                                         Button(
-                                            onClick = { viewModel.buyCredits(500, 4.99) },
+                                            onClick = { creditPackToBuy = 500 to 4.99 },
+                                            enabled = isCreditStoreMock,
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1081,7 +1108,8 @@ fun ProfileScreen(
                                         
                                         // Package 2
                                         Button(
-                                            onClick = { viewModel.buyCredits(1500, 9.99) },
+                                            onClick = { creditPackToBuy = 1500 to 9.99 },
+                                            enabled = isCreditStoreMock,
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1101,7 +1129,8 @@ fun ProfileScreen(
                                         
                                         // Package 3
                                         Button(
-                                            onClick = { viewModel.buyCredits(4000, 19.99) },
+                                            onClick = { creditPackToBuy = 4000 to 19.99 },
+                                            enabled = isCreditStoreMock,
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -1391,6 +1420,20 @@ fun ProfileScreen(
             onWithdraw = { amount, method, details ->
                 viewModel.withdrawCredits(amount, method, details)
                 showWithdrawDialog = false
+            }
+        )
+     }
+
+     // Credits are only granted after explicit confirmation, and only in debug
+     // builds (the store buttons are disabled in release, so this never opens there).
+     creditPackToBuy?.let { (credits, priceUSD) ->
+        BuyCreditsConfirmDialog(
+            credits = credits,
+            priceUSD = priceUSD,
+            onDismiss = { creditPackToBuy = null },
+            onConfirm = {
+                viewModel.buyCredits(credits, priceUSD)
+                creditPackToBuy = null
             }
         )
      }

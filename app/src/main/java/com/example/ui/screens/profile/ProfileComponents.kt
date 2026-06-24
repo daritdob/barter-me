@@ -501,3 +501,105 @@ fun WithdrawDialog(
     }
 }
 
+/**
+ * Confirmation dialog shown before a cooperative credit top-up is granted.
+ *
+ * No credits are added until the user explicitly confirms. The mock disclosure
+ * is always present because this dialog is only reachable from debug builds
+ * (real Play Billing is not yet wired up).
+ */
+@Composable
+fun BuyCreditsConfirmDialog(
+    credits: Int,
+    priceUSD: Double,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val creditsFormatted = remember(credits) {
+        java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(credits)
+    }
+    val priceFormatted = remember(priceUSD) {
+        String.format(java.util.Locale.US, "%.2f", priceUSD)
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+                .testTag("buy_credits_confirm_dialog")
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalanceWallet,
+                        contentDescription = "Wallet top-up icon",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        "Confirm Credit Top-Up",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Text(
+                    "Buy $creditsFormatted credits for \$$priceFormatted?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // Mock disclosure — make the test-only nature of this purchase obvious.
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "🧪 Debug/test purchase — no real charge. Credits are granted locally for testing only.",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("buy_credits_cancel_btn")
+                    ) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = onConfirm,
+                        modifier = Modifier.testTag("buy_credits_confirm_btn")
+                    ) {
+                        Text("Confirm")
+                    }
+                }
+            }
+        }
+    }
+}
+
