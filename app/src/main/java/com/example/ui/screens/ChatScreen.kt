@@ -252,6 +252,10 @@ fun ChatScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                // Consume the Scaffold insets so the input bar's imePadding() below
+                // doesn't re-apply the navigation-bar inset on top of the keyboard
+                // inset (the previous double-count left a blank gap above the keyboard).
+                .consumeWindowInsets(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
             // Pinned listing context header
