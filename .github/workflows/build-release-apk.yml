@@ -1,0 +1,84 @@
+name: Build Release APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ORG_GRADLE_PROJECT_org.gradle.configuration-cache: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Run unit tests
+        run: chmod +x gradlew && ./gradlew testDebugUnitTest --no-daemon --stacktrace --info 2>&1 | tee unit-test.log; if [ $? -ne 0 ]; then tail -n 80 unit-test.log; exit 1; fi
+
+      - name: Upload unit test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-unit-test-log
+          path: unit-test.log
+          retention-days: 7
+
+      - name: Run release lint
+        run: ./gradlew lintRelease --no-daemon --stacktrace
+
+      - name: Build release APK (runs R8 shrink/obfuscate)
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: barter-me-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload R8 mapping file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: barter-me-release-mapping
+          path: app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Job summary
+        if: success()
+        run: |
+          APK_PATH=$(ls app/build/outputs/apk/release/*.apk | head -n 1)
+          APK_NAME=$(basename "$APK_PATH")
+          APK_SIZE=$(du -h "$APK_PATH" | cut -f1)
+          echo "## Barter-me release APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Artifact:** \`${APK_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Size:** ${APK_SIZE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Package:** \`com.barterme\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **R8:** minify + resource shrinking enabled" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${APK_NAME}" = "app-release-unsigned.apk" ]; then
+            echo "> :warning: **This is an UNSIGNED release build.** Signing is deferred until the upload keystore and GitHub secrets (\`KEYSTORE_PATH\`, \`STORE_PASSWORD\`, \`KEY_PASSWORD\`, alias \`upload\`) are added. The APK will not install on a device until signed (e.g. \`apksigner sign\`). Once the keystore is present, the build will automatically produce a signed \`app-release.apk\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "> :white_check_mark: Signed release build detected (\`${APK_NAME}\`)." >> "$GITHUB_STEP_SUMMARY"
+          fi
