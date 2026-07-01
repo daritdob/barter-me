@@ -7,6 +7,7 @@ object BarterDestinations {
     const val NOTIFICATIONS = "notifications"
     const val PROFILE = "profile/{userId}"
     const val CHAT = "chat/{listingId}"
+    const val SUBSCRIPTION = "subscription"
 
     const val PROFILE_ME = "profile/me"
 

@@ -1,22 +1,35 @@
 package com.example
 
-import android.database.sqlite.SQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.sqlite.db.framework.FrameworkSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.example.data.MIGRATION_5_6
 import com.example.data.MIGRATION_6_7
 import com.example.data.MIGRATION_7_8
 import com.example.data.MIGRATION_8_9
+import com.example.data.MIGRATION_9_10
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class MigrationTest {
+
+    private fun createInMemoryDatabase(): SupportSQLiteDatabase {
+        val config = SupportSQLiteOpenHelper.Configuration.builder(RuntimeEnvironment.getApplication())
+            .name(null) // null name creates in-memory database
+            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: SupportSQLiteDatabase) {}
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+        return FrameworkSQLiteOpenHelperFactory().create(config).writableDatabase
+    }
 
     @Test
     fun migration5To6_hasExpectedVersions() {
@@ -26,9 +39,8 @@ class MigrationTest {
 
     @Test
     fun migrate5To6_createsNewTablesAndSeedData() {
-        val sqliteDb = SQLiteDatabase.createInMemory(null)
-        sqliteDb.version = 5
-        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
+        val db = createInMemoryDatabase()
+        db.version = 5
 
         MIGRATION_5_6.migrate(db)
 
@@ -58,9 +70,9 @@ class MigrationTest {
 
     @Test
     fun migration6To7_addsListingStatusColumns() {
-        val sqliteDb = SQLiteDatabase.createInMemory(null)
-        sqliteDb.version = 6
-        sqliteDb.execSQL(
+        val db = createInMemoryDatabase()
+        db.version = 6
+        db.execSQL(
             """
             CREATE TABLE listings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,7 +85,6 @@ class MigrationTest {
             )
             """.trimIndent()
         )
-        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
         MIGRATION_6_7.migrate(db)
         db.query("SELECT listingStatus FROM listings LIMIT 0").use { cursor ->
             assertTrue(cursor.columnCount >= 1)
@@ -89,9 +100,9 @@ class MigrationTest {
 
     @Test
     fun migration7To8_addsSignedValuationColumns() {
-        val sqliteDb = SQLiteDatabase.createInMemory(null)
-        sqliteDb.version = 7
-        sqliteDb.execSQL(
+        val db = createInMemoryDatabase()
+        db.version = 7
+        db.execSQL(
             """
             CREATE TABLE trade_states (
                 listingId INTEGER NOT NULL PRIMARY KEY,
@@ -99,12 +110,11 @@ class MigrationTest {
             )
             """.trimIndent()
         )
-        sqliteDb.execSQL(
+        db.execSQL(
             """
             INSERT INTO trade_states (listingId, state) VALUES (1, 'AGREEMENT_SIGNED')
             """.trimIndent()
         )
-        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
 
         MIGRATION_7_8.migrate(db)
 
@@ -128,9 +138,8 @@ class MigrationTest {
 
     @Test
     fun migrate8To9_createsBlockedUsersAndTradeReportsTables() {
-        val sqliteDb = SQLiteDatabase.createInMemory(null)
-        sqliteDb.version = 8
-        val db: SupportSQLiteDatabase = FrameworkSQLiteDatabase.wrap(sqliteDb)
+        val db = createInMemoryDatabase()
+        db.version = 8
 
         MIGRATION_8_9.migrate(db)
 
@@ -151,6 +160,51 @@ class MigrationTest {
         db.query("SELECT COUNT(*) FROM trade_reports").use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals(1, cursor.getInt(0))
+        }
+
+        db.close()
+    }
+
+    @Test
+    fun migration9To10_hasExpectedVersions() {
+        assertEquals(9, MIGRATION_9_10.startVersion)
+        assertEquals(10, MIGRATION_9_10.endVersion)
+    }
+
+    @Test
+    fun migrate9To10_addsSubscriptionFieldsToUserPreferences() {
+        val db = createInMemoryDatabase()
+        db.version = 9
+        db.execSQL(
+            """
+            CREATE TABLE user_preferences (
+                id INTEGER NOT NULL PRIMARY KEY,
+                isDarkMode INTEGER NOT NULL DEFAULT 1,
+                maxDistanceFilter REAL,
+                searchQuery TEXT NOT NULL DEFAULT '',
+                selectedCategory TEXT,
+                walletBalance INTEGER NOT NULL DEFAULT 4200
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            INSERT INTO user_preferences (id, isDarkMode, maxDistanceFilter, searchQuery, selectedCategory, walletBalance)
+            VALUES (1, 1, NULL, '', NULL, 4200)
+            """.trimIndent()
+        )
+
+        MIGRATION_9_10.migrate(db)
+
+        db.query("SELECT subscriptionType, subscriptionExpiryTimestamp, totalOffersCreated FROM user_preferences LIMIT 0").use { cursor ->
+            assertTrue(cursor.columnCount >= 3)
+        }
+        // Existing rows get default values for new columns.
+        db.query("SELECT subscriptionType, subscriptionExpiryTimestamp, totalOffersCreated FROM user_preferences WHERE id = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("FREE", cursor.getString(0))
+            assertEquals(0L, cursor.getLong(1))
+            assertEquals(0, cursor.getInt(2))
         }
 
         db.close()

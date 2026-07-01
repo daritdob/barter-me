@@ -43,6 +43,7 @@ fun ProfileScreen(
     userId: String,
     onBack: () -> Unit,
     showBackButton: Boolean = true,
+    onNavigateToSubscription: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -58,6 +59,8 @@ fun ProfileScreen(
     val locationMessage by viewModel.locationMessage.collectAsState()
     val socialVerificationMessage by viewModel.socialVerificationMessage.collectAsState()
     var socialProfileUrl by remember { mutableStateOf("") }
+    val subscriptionType by viewModel.subscriptionType.collectAsState()
+    val totalOffersCreated by viewModel.totalOffersCreated.collectAsState()
 
     // Collect profile
     val profileFlow = remember(userId) {
@@ -379,6 +382,81 @@ fun ProfileScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // Subscription Status Card (only for "me")
+                if (userId == "me" && !isEditing) {
+                    item {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToSubscription() }
+                                .testTag("subscription_card"),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (subscriptionType != "FREE") 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = when (subscriptionType) {
+                                            "MONTHLY", "LIFETIME" -> Icons.Default.Star
+                                            else -> Icons.Default.Lock
+                                        },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp),
+                                        tint = when (subscriptionType) {
+                                            "MONTHLY", "LIFETIME" -> Color(0xFFFFD700)
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                    
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    
+                                    Column {
+                                        Text(
+                                            text = when (subscriptionType) {
+                                                "MONTHLY" -> "Monthly Subscription"
+                                                "LIFETIME" -> "Lifetime Subscription"
+                                                else -> "Free Plan"
+                                            },
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        
+                                        Text(
+                                            text = if (subscriptionType == "FREE") {
+                                                "$totalOffersCreated of 1 free offer used"
+                                            } else {
+                                                "Unlimited offers • $totalOffersCreated created"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "View details",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
