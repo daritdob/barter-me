@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -28,7 +28,7 @@ fun SubscriptionScreen(
     viewModel: BarterViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current ?: return
     val subscriptionType by viewModel.subscriptionType.collectAsState()
     val totalOffersCreated by viewModel.totalOffersCreated.collectAsState()
     val remainingOffers = viewModel.getRemainingFreeOffers()
