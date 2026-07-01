@@ -1,11 +1,13 @@
 package com.example.ui.viewmodel
 
+import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.AuthRepository
 import com.example.data.BarterDatabase
 import com.example.data.BarterRepository
+import com.example.data.BillingRepository
 import com.example.data.CredentialResult
 import com.example.data.LocationProvider
 import com.example.data.LocationResult
@@ -13,6 +15,7 @@ import com.example.data.MatchEngine
 import com.example.data.NotificationHelper
 import com.example.data.SocialVerificationRepository
 import com.example.data.SocialVerificationResult
+import com.example.data.SubscriptionStatus
 import com.example.data.model.ChatMessageEntity
 import com.example.data.model.CompletedTradeEntity
 import com.example.data.model.ListingEntity
@@ -55,6 +58,7 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
     )
     private val locationProvider = LocationProvider(getApplication())
     private val socialVerificationRepository = SocialVerificationRepository()
+    private val billingRepository = BillingRepository(getApplication(), viewModelScope)
 
     private val _smartMatches = MutableStateFlow<List<ListingEntity>>(emptyList())
     val smartMatches: StateFlow<List<ListingEntity>> = _smartMatches.asStateFlow()
@@ -101,6 +105,15 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
 
     val walletBalance: StateFlow<Int> = preferences.map { it.walletBalance }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 4200)
+
+    val subscriptionType: StateFlow<String> = preferences.map { it.subscriptionType }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "FREE")
+
+    val totalOffersCreated: StateFlow<Int> = preferences.map { it.totalOffersCreated }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val subscriptionStatus: StateFlow<SubscriptionStatus> = billingRepository.subscriptionStatus
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SubscriptionStatus.Free)
 
     val inAppNotifications: StateFlow<List<NotificationEntity>> =
         repository.notifications.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -214,6 +227,8 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                 e.printStackTrace()
             }
         }
+
+        syncSubscriptionStatus()
     }
 
     fun signInWithCredentials(
@@ -743,6 +758,9 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
                             submittedAt = System.currentTimeMillis(),
                         )
                     ).toInt()
+                    
+                    incrementOfferCount()
+                    
                     // Tapping the notification deep-links straight to the live offer.
                     notificationHelper.showPushAndRecord(
                         "Offer is live",
@@ -876,5 +894,107 @@ class BarterViewModel(application: Application) : AndroidViewModel(application) 
         return repository.calculateDistanceInMiles(
             me.latitude, me.longitude, listing.latitude, listing.longitude
         )
+    }
+
+    fun canCreateOffer(): Boolean {
+        val currentTotal = totalOffersCreated.value
+        return when (subscriptionType.value) {
+            "FREE" -> currentTotal < 1
+            "MONTHLY", "LIFETIME" -> true
+            else -> currentTotal < 1
+        }
+    }
+
+    fun getRemainingFreeOffers(): Int {
+        val currentTotal = totalOffersCreated.value
+        return when (subscriptionType.value) {
+            "FREE" -> maxOf(0, 1 - currentTotal)
+            "MONTHLY", "LIFETIME" -> Int.MAX_VALUE
+            else -> maxOf(0, 1 - currentTotal)
+        }
+    }
+
+    fun purchaseSubscription(activity: Activity, isMonthly: Boolean, onResult: (success: Boolean, message: String?) -> Unit) {
+        viewModelScope.launch {
+            billingRepository.purchaseSubscription(activity, isMonthly) { result ->
+                when (result) {
+                    is com.example.data.BillingResult.Success -> {
+                        val subType = if (isMonthly) "MONTHLY" else "LIFETIME"
+                        val expiry = if (isMonthly) System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000) else 0L
+                        viewModelScope.launch {
+                            val current = preferences.value
+                            repository.updateUserPreferences(
+                                current.copy(
+                                    subscriptionType = subType,
+                                    subscriptionExpiryTimestamp = expiry
+                                )
+                            )
+                        }
+                        notificationHelper.showPushAndRecord(
+                            "🎉 Subscription Activated!",
+                            "You now have unlimited swaps and offers!"
+                        )
+                        onResult(true, "Subscription activated successfully")
+                    }
+                    is com.example.data.BillingResult.Error -> {
+                        onResult(false, result.message)
+                    }
+                    is com.example.data.BillingResult.Pending -> {
+                        onResult(true, "Purchase initiated...")
+                    }
+                }
+            }
+        }
+    }
+
+    fun syncSubscriptionStatus() {
+        viewModelScope.launch {
+            val hasActiveSubscription = billingRepository.hasActiveSubscription()
+            val currentSubType = subscriptionType.value
+            
+            if (hasActiveSubscription && currentSubType == "FREE") {
+                when (val status = subscriptionStatus.value) {
+                    is SubscriptionStatus.Lifetime -> {
+                        val current = preferences.value
+                        repository.updateUserPreferences(
+                            current.copy(
+                                subscriptionType = "LIFETIME",
+                                subscriptionExpiryTimestamp = 0L
+                            )
+                        )
+                    }
+                    is SubscriptionStatus.Monthly -> {
+                        val current = preferences.value
+                        repository.updateUserPreferences(
+                            current.copy(
+                                subscriptionType = "MONTHLY",
+                                subscriptionExpiryTimestamp = status.expiryTimestamp
+                            )
+                        )
+                    }
+                    else -> {}
+                }
+            } else if (!hasActiveSubscription && currentSubType == "MONTHLY") {
+                val current = preferences.value
+                repository.updateUserPreferences(
+                    current.copy(
+                        subscriptionType = "FREE",
+                        subscriptionExpiryTimestamp = 0L
+                    )
+                )
+            }
+        }
+    }
+
+    private suspend fun incrementOfferCount() {
+        val current = preferences.value
+        repository.updateUserPreferences(
+            current.copy(totalOffersCreated = current.totalOffersCreated + 1)
+        )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        billingRepository.destroy()
     }
 }

@@ -28,9 +28,11 @@ import com.example.data.BARTER_CATEGORIES
 import com.example.data.model.ListingEntity
 import com.example.ui.viewmodel.BarterViewModel
 import com.example.ui.components.SectionHeader
+import com.example.ui.components.SubscriptionPaywallDialog
 import com.example.ui.screens.explore.AISmartMatchesSection
 import com.example.ui.screens.explore.CreateListingWizard
 import com.example.ui.screens.explore.ListingCard
+import com.example.navigation.BarterDestinations
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +40,7 @@ fun ExploreScreen(
     viewModel: BarterViewModel,
     onNavigateToChat: (Int) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToSubscription: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val listings by viewModel.filteredListings.collectAsState()
@@ -51,6 +54,7 @@ fun ExploreScreen(
     val listingSubmitState by viewModel.listingSubmitState.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showPaywallDialog by remember { mutableStateOf(false) }
 
     var isFilterExpanded by remember { mutableStateOf(false) }
     var isMapView by remember { mutableStateOf(false) }
@@ -416,7 +420,13 @@ fun ExploreScreen(
     }
 
         ExtendedFloatingActionButton(
-            onClick = { showCreateDialog = true },
+            onClick = {
+                if (viewModel.canCreateOffer()) {
+                    showCreateDialog = true
+                } else {
+                    showPaywallDialog = true
+                }
+            },
             icon = { Icon(Icons.Default.Add, contentDescription = "Post offer") },
             text = { Text("Post offer") },
             expanded = true,
@@ -451,6 +461,16 @@ fun ExploreScreen(
                     photoUri = photo,
                 )
             },
+        )
+    }
+
+    if (showPaywallDialog) {
+        SubscriptionPaywallDialog(
+            onDismiss = { showPaywallDialog = false },
+            onUpgrade = {
+                showPaywallDialog = false
+                onNavigateToSubscription()
+            }
         )
     }
 }

@@ -36,7 +36,10 @@ data class UserPreferencesEntity(
     val maxDistanceFilter: Float? = null,
     val searchQuery: String = "",
     val selectedCategory: String? = null,
-    val walletBalance: Int = 4200
+    val walletBalance: Int = 4200,
+    val subscriptionType: String = "FREE", // FREE, MONTHLY, LIFETIME
+    val subscriptionExpiryTimestamp: Long = 0L, // For monthly subscriptions
+    val totalOffersCreated: Int = 0 // Track total offers created by user
 )
 
 @Entity(tableName = "blocked_users")

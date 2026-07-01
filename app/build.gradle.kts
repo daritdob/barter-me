@@ -101,6 +101,7 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.osmdroid.android)
   implementation(libs.play.services.location)
+  implementation(libs.billing.ktx)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.room.testing)
   testImplementation(libs.androidx.runner)

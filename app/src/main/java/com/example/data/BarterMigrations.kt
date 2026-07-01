@@ -143,3 +143,23 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         )
     }
 }
+
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            ALTER TABLE user_preferences ADD COLUMN subscriptionType TEXT NOT NULL DEFAULT 'FREE'
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            ALTER TABLE user_preferences ADD COLUMN subscriptionExpiryTimestamp INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            ALTER TABLE user_preferences ADD COLUMN totalOffersCreated INTEGER NOT NULL DEFAULT 0
+            """.trimIndent()
+        )
+    }
+}

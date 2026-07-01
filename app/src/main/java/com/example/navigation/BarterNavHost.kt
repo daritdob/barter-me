@@ -95,7 +95,8 @@ fun BarterNavHost(
                 ExploreScreen(
                     viewModel = viewModel,
                     onNavigateToChat = { navController.navigate(BarterDestinations.chatRoute(it)) },
-                    onNavigateToProfile = { navController.navigate(BarterDestinations.profileRoute(it)) }
+                    onNavigateToProfile = { navController.navigate(BarterDestinations.profileRoute(it)) },
+                    onNavigateToSubscription = { navController.navigate(BarterDestinations.SUBSCRIPTION) }
                 )
             }
             composable(BarterDestinations.SAVED) {
@@ -126,7 +127,8 @@ fun BarterNavHost(
                     viewModel = viewModel,
                     userId = userId,
                     showBackButton = userId != "me",
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToSubscription = { navController.navigate(BarterDestinations.SUBSCRIPTION) }
                 )
             }
             composable(BarterDestinations.CHAT) { entry ->
@@ -136,6 +138,12 @@ fun BarterNavHost(
                     listingId = listingId,
                     onBack = { navController.popBackStack() },
                     onNavigateToProfile = { navController.navigate(BarterDestinations.profileRoute(it)) }
+                )
+            }
+            composable(BarterDestinations.SUBSCRIPTION) {
+                SubscriptionScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
         }
